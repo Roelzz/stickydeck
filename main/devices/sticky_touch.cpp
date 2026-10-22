@@ -104,6 +104,12 @@ const char *event_name(AppEvent event)
         return "ClockMinuteTick";
     case AppEvent::EnterDeepSleep:
         return "EnterDeepSleep";
+    case AppEvent::TouchDown:
+        return "TouchDown";
+    case AppEvent::TouchUp:
+        return "TouchUp";
+    case AppEvent::TouchTap:
+        return "TouchTap";
     }
     return "Unknown";
 }
@@ -120,21 +126,37 @@ void touch_task(void *)
         const int8_t count = s_controller.read_points(&point, 1);
 
         if (count > 0) {
-            transform_touch_coordinate(point.x, point.y, s_last_x, s_last_y);
+            uint16_t x = 0;
+            uint16_t y = 0;
+            transform_touch_coordinate(point.x, point.y, x, y);
             if (!s_touching) {
-                s_start_x = s_last_x;
-                s_start_y = s_last_y;
+                s_start_x = x;
+                s_start_y = y;
+                s_touching = true;
+                ESP_LOGI(kTag, "TouchDown at (%u,%u)", x, y);
+                if (!app_event_post_touch(AppEvent::TouchDown, x, y)) {
+                    ESP_LOGW(kTag, "App event queue is full");
+                }
             }
-            s_touching = true;
+            s_last_x = x;
+            s_last_y = y;
         } else if (count == 0 && s_touching) {
             s_touching = false;
-            AppEvent event = AppEvent::NextPage;
-            if (classify_horizontal_swipe(event)) {
+            AppEvent swipe = AppEvent::NextPage;
+            if (classify_horizontal_swipe(swipe)) {
                 ESP_LOGI(kTag,
                          "Swipe: (%u,%u) -> (%u,%u), event=%s",
                          s_start_x, s_start_y, s_last_x, s_last_y,
-                         event_name(event));
-                if (!app_event_post(event)) {
+                         event_name(swipe));
+                if (!app_event_post(swipe)) {
+                    ESP_LOGW(kTag, "App event queue is full");
+                }
+            } else {
+                ESP_LOGI(kTag, "Tap at (%u,%u)", s_start_x, s_start_y);
+                if (!app_event_post_touch(AppEvent::TouchUp, s_last_x, s_last_y)) {
+                    ESP_LOGW(kTag, "App event queue is full");
+                }
+                if (!app_event_post_touch(AppEvent::TouchTap, s_start_x, s_start_y)) {
                     ESP_LOGW(kTag, "App event queue is full");
                 }
             }

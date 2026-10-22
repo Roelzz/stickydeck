@@ -192,6 +192,13 @@ esp_err_t handle_app_event(Canvas &canvas,
         return sticky_display_refresh_partial();
     }
 
+    // Touch events are consumed by the deck layer; the dashboard demo only
+    // logs them (via sticky_touch) and does not refresh the page.
+    if (event == AppEvent::TouchDown || event == AppEvent::TouchUp ||
+        event == AppEvent::TouchTap) {
+        return ESP_OK;
+    }
+
     const PageId previous_page = state.current_page;
     const bool orientation_event = event == AppEvent::OrientationChanged;
 
@@ -231,6 +238,8 @@ esp_err_t handle_app_event(Canvas &canvas,
         break;
     case AppEvent::EnterDeepSleep:
         // Handled before this switch because deep sleep does not return.
+        break;
+    default:
         break;
     }
 
