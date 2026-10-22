@@ -6,15 +6,18 @@ HID keyboard and fires hotkeys, typed text, and media keys on a paired computer.
 
 ## Status
 
-Working v1. On boot it loads `deck.json` from the microSD card (falls back to a
-built-in default), renders a monochrome button grid on the ePaper, advertises as
-a BLE HID keyboard, and fires actions on tap.
+Working v1+. On boot it loads its config (web-saved NVS > microSD `deck.json` >
+built-in default), renders a monochrome button grid + status bar on the ePaper,
+advertises as a BLE HID keyboard, fires actions on tap, and hosts a **web
+configurator** on Wi-Fi.
 
 ```
 tap a button → fire BLE HID action immediately → buzzer
             → partial ePaper refresh to highlight the key
 Up/Down buttons or left/right swipe → switch pages
 AI short-press → refresh the page   AI long-press → deep sleep
+Status bar: battery % + BLE-connection indicator
+Wi-Fi AP "StickyDeck-Config" → browser editor at http://192.168.4.1/
 ```
 
 ## Hardware
@@ -36,13 +39,15 @@ main/
 ├── main.cpp            # entry: deck_app_run()
 ├── app/                # event queue (AppEventMessage)
 ├── board/              # power + shared buses
-├── devices/            # sticky_display/buzzer/buttons/touch/sdcard/power
+├── devices/            # sticky_display/buzzer/buttons/touch/sdcard/power/battery
 ├── ui/                 # Canvas + 5x7 font
 ├── deck/
-│   ├── deck_config     # JSON config (deck.json) + default
+│   ├── deck_config     # JSON config (NVS > SD > default)
 │   ├── deck_actions    # action execution + HID key lookups
-│   ├── deck_render     # grid render + hit-test
-│   └── deck_app        # init + event loop
+│   ├── deck_render     # grid render + hit-test + status bar
+│   ├── deck_app        # init + event loop
+│   └── webserver       # Wi-Fi AP + HTTP config editor
+├── partitions.csv      # 4MB app partition (32MB flash)
 components/
 ├── ble_hid/            # BLE HID keyboard + media device
 ├── seeed_epaper/       # SSD1677 ePaper driver
@@ -52,7 +57,16 @@ components/
 
 ## Configuration
 
-Place a `deck.json` on the microSD card:
+### Web editor (easiest)
+
+1. On your phone/laptop, join the Wi-Fi network **`StickyDeck-Config`** (open).
+2. Browse to **http://192.168.4.1/**.
+3. Edit the JSON, then **Save & reboot**. The config is stored in flash (NVS).
+
+### microSD (alternative)
+
+Place a `deck.json` on the microSD card (overrides the built-in default; a
+web-saved config in NVS takes priority over both):
 
 ```json
 {
