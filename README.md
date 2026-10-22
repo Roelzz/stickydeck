@@ -12,7 +12,7 @@ advertises as a BLE HID keyboard, fires actions on tap, and hosts a **web
 configurator** on Wi-Fi.
 
 ```
-tap a button → fire BLE HID action immediately → buzzer
+tap a button → fire BLE HID action immediately → buzzer (if enabled)
             → partial ePaper refresh to highlight the key
 Up/Down buttons or left/right swipe → switch pages
 AI short-press → refresh the page   AI long-press → deep sleep
@@ -20,6 +20,17 @@ Status bar: battery % + BLE + Wi-Fi indicators
 Tap the header bar → toggle the Wi-Fi config AP on/off
 Wi-Fi AP "StickyDeck-Config" → browser editor at http://192.168.4.1/
 ```
+
+## Features
+
+- BLE HID keyboard + consumer (media) keys
+- Touch buttons with built-in icons; multi-page navigation
+- Battery level reported to the host over BLE (macOS shows it in the Bluetooth menu)
+- Status bar: battery %, BLE + Wi-Fi state; tap the header to toggle Wi-Fi
+- Web configurator — Wi-Fi AP + visual browser editor
+- Auto-sleep after N idle minutes (configurable)
+- Deep sleep (AI long-press) / wake (AI press), ePaper keeps the last image
+- Config-error indicator (`!`) if the user JSON is invalid
 
 ## Hardware
 
@@ -60,9 +71,11 @@ components/
 
 ### Web editor (easiest)
 
-1. On your phone/laptop, join the Wi-Fi network **`StickyDeck-Config`** (open).
+1. On your phone/laptop, join the Wi-Fi network **`StickyDeck-Config`**
+   (password **`stickydeck`**).
 2. Browse to **http://192.168.4.1/**.
-3. Edit the JSON, then **Save & reboot**. The config is stored in flash (NVS).
+3. Edit pages, buttons, and settings in the visual editor, then **Save & reboot**.
+   The config is stored in flash (NVS) and survives reboots.
 
 ### microSD (alternative)
 
@@ -103,6 +116,8 @@ Each button may also set an `"icon"` (drawn above the label):
 Set `"wifi": false` at the top level to keep the config AP off at boot
 (use a `wifi`-type button to switch it back on).
 Set `"beep": true` to enable button/Wi-Fi-toggle beeps (off by default).
+Set `"sleep": N` to auto deep-sleep after N idle minutes (`0` = never, default).
+Set `"ap_password": "..."` to change the Wi-Fi AP password (default `stickydeck`).
 
 ## Build / flash
 
