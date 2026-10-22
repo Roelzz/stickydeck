@@ -26,3 +26,7 @@ flash_project_args
 
 # Local backups
 backups/
+.cache/
+*.log
+*.tmp
+*.bak
