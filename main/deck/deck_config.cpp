@@ -35,6 +35,17 @@ const char kDefaultJson[] = R"JSON({
         { "label": "Text",       "icon": "text",       "action": { "type": "keys", "keys": ["T"] } },
         { "label": "Zoom",       "icon": "zoom",       "action": { "type": "keys", "mods": ["CTRL"], "keys": ["Z"] } }
       ]
+    },
+    {
+      "id": "test",
+      "title": "test :D",
+      "cols": 3,
+      "rows": 1,
+      "buttons": [
+        { "label": "Hi!",  "icon": "text",  "action": { "type": "text",  "text": "Hello from StickyDeck! " } },
+        { "label": "Mute", "icon": "circle", "action": { "type": "media", "key": "MUTE" } },
+        { "label": "Back", "icon": "arrow",  "action": { "type": "page",  "target": "main" } }
+      ]
     }
   ]
 })JSON";

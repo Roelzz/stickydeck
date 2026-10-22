@@ -15,7 +15,7 @@ struct DeckStatus {
 
 /** Draw a page's button grid (monochrome) plus the status header. */
 void deck_render_page(Canvas &canvas, const DeckPage &page,
-                      const DeckStatus *status);
+                      const DeckStatus *status, int page_index, int page_count);
 
 /** Draw the sleep screen (shown while the device is in deep sleep). */
 void deck_render_sleep(Canvas &canvas, const DeckStatus &status);

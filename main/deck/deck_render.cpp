@@ -195,12 +195,20 @@ void deck_render_button(Canvas &canvas, const DeckPage &page, int index,
 }
 
 void deck_render_page(Canvas &canvas, const DeckPage &page,
-                      const DeckStatus *status)
+                      const DeckStatus *status, int page_index, int page_count)
 {
     canvas.clear(GrayLevel::White);
 
-    /* Header: title (left) + status (right). */
+    /* Header: title + page indicator (left) + status (right). */
     canvas.draw_text(12, 12, page.title.c_str(), 2, GrayLevel::Black);
+    if (page_count > 1) {
+        char indicator[32] = {};
+        std::snprintf(indicator, sizeof(indicator), "%d/%d", page_index + 1,
+                      page_count);
+        const int title_w = text_width(page.title.c_str(), 2);
+        canvas.draw_text(12 + title_w + 16, 12, indicator, 2,
+                         GrayLevel::Black);
+    }
     if (status != nullptr) {
         deck_render_status(canvas, *status);
     }

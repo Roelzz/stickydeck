@@ -66,7 +66,8 @@ void render_full(Canvas &canvas, const DeckConfig &config, int page_index,
     }
     const DeckStatus status = read_status();
     deck_render_page(canvas, config.pages[static_cast<size_t>(page_index)],
-                     &status);
+                     &status, page_index,
+                     static_cast<int>(config.pages.size()));
     ESP_ERROR_CHECK(sticky_display_refresh_monochrome());
     last_status = status;
 }
