@@ -237,3 +237,62 @@ int deck_hit_test(const DeckPage &page, uint16_t x, uint16_t y)
     }
     return index;
 }
+
+void draw_battery(Canvas &canvas, int x, int y, int w, int h, int percent)
+{
+    canvas.draw_rect(x, y, w, h, GrayLevel::Black);
+
+    /* Terminal nub. */
+    const int nub_w = 8;
+    const int nub_h = h * 2 / 5;
+    canvas.fill_rect(x + w, y + (h - nub_h) / 2, nub_w, nub_h,
+                     GrayLevel::Black);
+
+    /* Fill level. */
+    if (percent > 0 && percent <= 100) {
+        const int pad = 4;
+        const int fill_w = (w - 2 * pad) * percent / 100;
+        canvas.fill_rect(x + pad, y + pad, fill_w, h - 2 * pad,
+                         GrayLevel::Black);
+    }
+}
+
+void deck_render_sleep(Canvas &canvas, const DeckStatus &status)
+{
+    canvas.clear(GrayLevel::White);
+
+    const int cx = kStickyDisplayWidth / 2;
+
+    const char *title = "StickyDeck";
+    const uint8_t tscale = 6;
+    canvas.draw_text(cx - text_width(title, tscale) / 2, 130, title, tscale,
+                     GrayLevel::Black);
+
+    const char *by = "by Roelzz";
+    const uint8_t bscale = 3;
+    canvas.draw_text(cx - text_width(by, bscale) / 2, 200, by, bscale,
+                     GrayLevel::Black);
+
+    canvas.draw_line(cx - 130, 238, cx + 130, 238, GrayLevel::Black);
+
+    char pct[8] = "--";
+    if (status.battery >= 0 && status.battery <= 100) {
+        std::snprintf(pct, sizeof(pct), "%d%%", status.battery);
+    }
+    const uint8_t pscale = 3;
+    const int battery_w = 104;
+    const int battery_h = 44;
+    const int block_w = battery_w + 10 + 8 + text_width(pct, pscale);
+    const int battery_x = cx - block_w / 2;
+    const int battery_y = 268;
+    draw_battery(canvas, battery_x, battery_y, battery_w, battery_h,
+                 status.battery);
+    canvas.draw_text(battery_x + battery_w + 10 + 8,
+                     battery_y + (battery_h - kFontHeight * pscale) / 2, pct,
+                     pscale, GrayLevel::Black);
+
+    const char *hint = "press AI to wake";
+    const uint8_t hscale = 2;
+    canvas.draw_text(cx - text_width(hint, hscale) / 2, 396, hint, hscale,
+                     GrayLevel::Black);
+}

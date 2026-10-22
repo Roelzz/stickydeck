@@ -92,8 +92,11 @@ void render_status_if_changed(Canvas &canvas, DeckStatus &last_status)
              static_cast<int>(status.ble), static_cast<int>(status.wifi));
 }
 
-[[noreturn]] void enter_deep_sleep()
+[[noreturn]] void enter_deep_sleep(Canvas &canvas)
 {
+    const DeckStatus status = read_status();
+    deck_render_sleep(canvas, status);
+    ESP_ERROR_CHECK(sticky_display_refresh_monochrome());
     sticky_touch_stop();
     sticky_display_sleep();
     sticky_power_enter_deep_sleep();
@@ -166,7 +169,7 @@ esp_err_t deck_app_run()
                     static_cast<uint32_t>(config.sleep_minutes) * 60 * 1000)) {
                 ESP_LOGI(kTag, "Idle %d min, entering deep sleep",
                          config.sleep_minutes);
-                enter_deep_sleep();
+                enter_deep_sleep(*canvas);
             }
             continue;
         }
@@ -279,7 +282,7 @@ esp_err_t deck_app_run()
         case AppEvent::EnterDeepSleep:
             ESP_LOGI(kTag, "Entering deep sleep");
             sticky_buzzer_beep();
-            enter_deep_sleep();
+            enter_deep_sleep(*canvas);
             break;
 
         default:

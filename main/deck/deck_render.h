@@ -17,6 +17,9 @@ struct DeckStatus {
 void deck_render_page(Canvas &canvas, const DeckPage &page,
                       const DeckStatus *status);
 
+/** Draw the sleep screen (shown while the device is in deep sleep). */
+void deck_render_sleep(Canvas &canvas, const DeckStatus &status);
+
 /** Redraw only the status region of the header (for partial refresh). */
 void deck_render_status(Canvas &canvas, const DeckStatus &status);
 
