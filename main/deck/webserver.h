@@ -9,6 +9,9 @@
  */
 esp_err_t deck_webserver_start();
 
+/** Set the AP password (must be called before deck_webserver_start). */
+void deck_webserver_set_ap_password(const char *password);
+
 /** Stop the web server and Wi-Fi AP (frees power). */
 esp_err_t deck_webserver_stop();
 

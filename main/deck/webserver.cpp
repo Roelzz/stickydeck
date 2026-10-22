@@ -4,6 +4,7 @@
 
 #include "cJSON.h"
 #include "deck_config.h"
+#include "esp_coexist.h"
 #include "esp_event.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
@@ -22,6 +23,7 @@ constexpr char kApSsid[] = "StickyDeck-Config";
 httpd_handle_t s_server = nullptr;
 bool s_running = false;
 bool s_wifi_setup = false;
+char s_ap_password[64] = "stickydeck";
 
 const char kIndexHtml[] = R"HTML(<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -65,7 +67,7 @@ esp_err_t handle_index(httpd_req_t *req)
 
 esp_err_t handle_get_config(httpd_req_t *req)
 {
-    static char buffer[4096] = {};
+    static char buffer[8192] = {};
     const esp_err_t err = deck_config_json(buffer, sizeof(buffer));
     if (err != ESP_OK) {
         httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
@@ -78,7 +80,7 @@ esp_err_t handle_get_config(httpd_req_t *req)
 
 esp_err_t handle_save(httpd_req_t *req)
 {
-    if (req->content_len <= 0 || req->content_len > 4096) {
+    if (req->content_len <= 0 || req->content_len > 8192) {
         httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "bad length");
         return ESP_FAIL;
     }
@@ -178,6 +180,9 @@ esp_err_t wifi_ap_setup()
     }
     /* Max TX power (20 dBm) so the tiny antenna reaches further. */
     esp_wifi_set_max_tx_power(80);
+    /* Prefer Wi-Fi in BLE/Wi-Fi coexistence so the AP beacon gets airtime
+     * even while BLE is advertising. */
+    esp_coex_preference_set(ESP_COEX_PREFER_WIFI);
     err = esp_wifi_set_mode(WIFI_MODE_AP);
     if (err != ESP_OK) {
         return err;
@@ -189,7 +194,9 @@ esp_err_t wifi_ap_setup()
     ap.ap.ssid_len = std::strlen(kApSsid);
     ap.ap.channel = 1;
     ap.ap.max_connection = 4;
-    ap.ap.authmode = WIFI_AUTH_OPEN;
+    ap.ap.authmode = WIFI_AUTH_WPA2_PSK;
+    std::strncpy(reinterpret_cast<char *>(ap.ap.password), s_ap_password,
+                 sizeof(ap.ap.password) - 1);
     err = esp_wifi_set_config(WIFI_IF_AP, &ap);
     if (err != ESP_OK) {
         return err;
@@ -233,6 +240,15 @@ esp_err_t start_httpd()
 }
 
 }  // namespace
+
+void deck_webserver_set_ap_password(const char *password)
+{
+    if (password == nullptr || password[0] == '\0') {
+        return;
+    }
+    std::strncpy(s_ap_password, password, sizeof(s_ap_password) - 1);
+    s_ap_password[sizeof(s_ap_password) - 1] = '\0';
+}
 
 esp_err_t deck_webserver_start()
 {

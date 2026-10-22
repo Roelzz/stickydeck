@@ -370,6 +370,14 @@ bool ble_hid_connected(void)
     return esp_hidd_dev_connected(s_hid_dev);
 }
 
+esp_err_t ble_hid_set_battery(uint8_t level)
+{
+    if (s_hid_dev == NULL) {
+        return ESP_ERR_INVALID_STATE;
+    }
+    return esp_hidd_dev_battery_set(s_hid_dev, level);
+}
+
 const char *ble_hid_device_name(void)
 {
     return BLE_HID_DEVICE_NAME;

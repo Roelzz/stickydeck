@@ -10,6 +10,7 @@ struct DeckStatus {
     int battery = -1; /* percent 0-100, -1 = unknown */
     bool ble = false; /* BLE host connected */
     bool wifi = false; /* Wi-Fi config AP running */
+    bool error = false; /* config failed to parse; using default */
 };
 
 /** Draw a page's button grid (monochrome) plus the status header. */

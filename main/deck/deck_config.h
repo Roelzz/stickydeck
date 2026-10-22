@@ -41,8 +41,11 @@ struct DeckPage {
 
 struct DeckConfig {
     std::string name;
-    bool wifi = true;  /* start the config AP at boot */
-    bool beep = false; /* beep on button / Wi-Fi toggle */
+    bool wifi = true;            /* start the config AP at boot */
+    bool beep = false;           /* beep on button / Wi-Fi toggle */
+    int sleep_minutes = 0;       /* auto deep-sleep after N idle minutes (0=never) */
+    std::string ap_password = "stickydeck"; /* Wi-Fi AP password */
+    bool fallback = false;       /* user config was invalid; used the default */
     std::vector<DeckPage> pages;
 };
 

@@ -22,6 +22,8 @@ namespace {
 constexpr char kTag[] = "deck";
 constexpr TickType_t kStatusPollPeriod = pdMS_TO_TICKS(10000);
 
+bool s_config_error = false;
+
 int find_page_index(const DeckConfig &config, const char *id)
 {
     for (size_t i = 0; i < config.pages.size(); ++i) {
@@ -46,6 +48,7 @@ DeckStatus read_status()
     DeckStatus status;
     status.ble = ble_hid_connected();
     status.wifi = deck_webserver_is_running();
+    status.error = s_config_error;
 
     BatteryReading reading = {};
     if (sticky_battery_read(reading) == ESP_OK) {
@@ -71,8 +74,15 @@ void render_full(Canvas &canvas, const DeckConfig &config, int page_index,
 void render_status_if_changed(Canvas &canvas, DeckStatus &last_status)
 {
     const DeckStatus status = read_status();
+
+    /* Push battery level over the HID battery service. */
+    if (status.battery >= 0 && status.battery <= 100) {
+        ble_hid_set_battery(static_cast<uint8_t>(status.battery));
+    }
+
     if (status.battery == last_status.battery &&
-        status.ble == last_status.ble && status.wifi == last_status.wifi) {
+        status.ble == last_status.ble && status.wifi == last_status.wifi &&
+        status.error == last_status.error) {
         return;
     }
     deck_render_status(canvas, status);
@@ -80,6 +90,13 @@ void render_status_if_changed(Canvas &canvas, DeckStatus &last_status)
     last_status = status;
     ESP_LOGI(kTag, "status: battery=%d ble=%d wifi=%d", status.battery,
              static_cast<int>(status.ble), static_cast<int>(status.wifi));
+}
+
+[[noreturn]] void enter_deep_sleep()
+{
+    sticky_touch_stop();
+    sticky_display_sleep();
+    sticky_power_enter_deep_sleep();
 }
 
 }  // namespace
@@ -112,6 +129,8 @@ esp_err_t deck_app_run()
     ESP_ERROR_CHECK(deck_config_load(config));
     ESP_LOGI(kTag, "Deck '%s': %u page(s)", config.name.c_str(),
              static_cast<unsigned>(config.pages.size()));
+    s_config_error = config.fallback;
+    deck_webserver_set_ap_password(config.ap_password.c_str());
 
     /* Wi-Fi config server: controlled by config.wifi; non-fatal. */
     if (config.wifi) {
@@ -132,6 +151,7 @@ esp_err_t deck_app_run()
     int page_index = 0;
     int highlight = -1;
     DeckStatus last_status = {};
+    TickType_t last_activity = xTaskGetTickCount();
     render_full(*canvas, config, page_index, last_status);
 
     while (true) {
@@ -139,8 +159,19 @@ esp_err_t deck_app_run()
         if (!app_event_wait_msg(msg, kStatusPollPeriod)) {
             /* Periodic status update (battery / BLE indicator). */
             render_status_if_changed(*canvas, last_status);
+
+            /* Auto-sleep after an idle timeout. */
+            if (config.sleep_minutes > 0 &&
+                (xTaskGetTickCount() - last_activity) >= pdMS_TO_TICKS(
+                    static_cast<uint32_t>(config.sleep_minutes) * 60 * 1000)) {
+                ESP_LOGI(kTag, "Idle %d min, entering deep sleep",
+                         config.sleep_minutes);
+                enter_deep_sleep();
+            }
             continue;
         }
+
+        last_activity = xTaskGetTickCount();
 
         const DeckPage *page =
             (page_index >= 0 &&
@@ -206,7 +237,9 @@ esp_err_t deck_app_run()
                     ESP_LOGW(kTag, "wifi toggle failed: %s",
                              esp_err_to_name(err));
                 }
-                sticky_buzzer_beep();
+                if (config.beep) {
+                    sticky_buzzer_beep();
+                }
                 ESP_LOGI(kTag, "Wi-Fi AP now %s",
                          deck_webserver_is_running() ? "on" : "off");
             } else {
@@ -246,9 +279,7 @@ esp_err_t deck_app_run()
         case AppEvent::EnterDeepSleep:
             ESP_LOGI(kTag, "Entering deep sleep");
             sticky_buzzer_beep();
-            sticky_touch_stop();
-            sticky_display_sleep();
-            sticky_power_enter_deep_sleep(); /* does not return */
+            enter_deep_sleep();
             break;
 
         default:

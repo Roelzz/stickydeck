@@ -41,6 +41,9 @@ esp_err_t ble_hid_init(void);
 /** True while a host is connected. */
 bool ble_hid_connected(void);
 
+/** Report battery level (0-100) to the host via the HID battery service. */
+esp_err_t ble_hid_set_battery(uint8_t level);
+
 /** The BLE device name this device advertises as. */
 const char *ble_hid_device_name(void);
 

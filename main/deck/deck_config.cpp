@@ -13,7 +13,7 @@
 namespace {
 
 constexpr char kTag[] = "deck_config";
-constexpr size_t kJsonBufferSize = 4096;
+constexpr size_t kJsonBufferSize = 8192;
 constexpr char kNvsNamespace[] = "deck";
 constexpr char kNvsKey[] = "json";
 
@@ -223,6 +223,16 @@ bool parse_json(const char *json, DeckConfig &config)
         config.beep = cJSON_IsTrue(beep);
     }
 
+    const cJSON *sleep = cJSON_GetObjectItem(root, "sleep");
+    if (sleep != nullptr && cJSON_IsNumber(sleep)) {
+        config.sleep_minutes = sleep->valueint;
+    }
+
+    const cJSON *ap_password = cJSON_GetObjectItem(root, "ap_password");
+    if (ap_password != nullptr && cJSON_IsString(ap_password)) {
+        config.ap_password = ap_password->valuestring;
+    }
+
     config.pages.clear();
     const cJSON *pages = cJSON_GetObjectItem(root, "pages");
     if (pages != nullptr && cJSON_IsArray(pages)) {
@@ -302,6 +312,7 @@ esp_err_t deck_config_load(DeckConfig &config)
 
     if (!parse_json(buffer, config)) {
         ESP_LOGW(kTag, "Failed to parse config JSON; using embedded default");
+        config.fallback = true;
         if (!parse_json(kDefaultJson, config)) {
             return ESP_FAIL;
         }

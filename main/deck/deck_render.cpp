@@ -120,6 +120,12 @@ void deck_render_status(Canvas &canvas, const DeckStatus &status)
     const int label_y = (kStatusH - kFontHeight * kLabelScale) / 2;
     int x = kStatusX + 4;
 
+    /* Config-error indicator. */
+    if (status.error) {
+        canvas.draw_text(x, label_y, "!", kLabelScale, GrayLevel::Black);
+        x += text_width("!", kLabelScale) + 10;
+    }
+
     /* BLE indicator. */
     canvas.draw_text(x, label_y, "BLE", kLabelScale, GrayLevel::Black);
     x += text_width("BLE", kLabelScale) + 6;
