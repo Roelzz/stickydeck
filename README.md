@@ -2,8 +2,20 @@
 
 Turn the Seeed **reTerminal Sticky** (ESP32-S3 + 3.97" ePaper + GT911 touch) into a
 **FreeTouchDeck-style BLE macro deck**: a touchscreen keypad that emulates a BLE
-HID keyboard and fires macros, hotkeys, text, media keys, and app launches on a
-paired computer.
+HID keyboard and fires hotkeys, typed text, and media keys on a paired computer.
+
+## Status
+
+Working v1. On boot it loads `deck.json` from the microSD card (falls back to a
+built-in default), renders a monochrome button grid on the ePaper, advertises as
+a BLE HID keyboard, and fires actions on tap.
+
+```
+tap a button → fire BLE HID action immediately → buzzer
+            → partial ePaper refresh to highlight the key
+Up/Down buttons or left/right swipe → switch pages
+AI short-press → refresh the page   AI long-press → deep sleep
+```
 
 ## Hardware
 
@@ -14,28 +26,72 @@ paired computer.
 | Display | 3.97" B&W ePaper, 800×480, 4-level gray, SSD1677 |
 | Touch | GT911 capacitive, I²C |
 | Input | AI/Power, Up, Down buttons + buzzer |
-| Wireless | Wi-Fi 2.4 GHz + BLE 5.0 |
+| Wireless | BLE 5.0 (HID keyboard + consumer control) |
 | USB | USB-C (UART debug only — no native USB-HID) |
 
-## Concept
+## Layout
 
 ```
-tap a key → fire BLE HID action immediately → buzzer feedback
-         → partial ePaper refresh of a "last key" highlight
+main/
+├── main.cpp            # entry: deck_app_run()
+├── app/                # event queue (AppEventMessage)
+├── board/              # power + shared buses
+├── devices/            # sticky_display/buzzer/buttons/touch/sdcard/power
+├── ui/                 # Canvas + 5x7 font
+├── deck/
+│   ├── deck_config     # JSON config (deck.json) + default
+│   ├── deck_actions    # action execution + HID key lookups
+│   ├── deck_render     # grid render + hit-test
+│   └── deck_app        # init + event loop
+components/
+├── ble_hid/            # BLE HID keyboard + media device
+├── seeed_epaper/       # SSD1677 ePaper driver
+├── gt911/              # capacitive touch driver
+└── button/             # iot-button (button events)
 ```
 
-ePaper retains the button grid at zero power, so the deck can deep-sleep and
-still look live.
+## Configuration
 
-## Architecture
+Place a `deck.json` on the microSD card:
 
-- `devices/` — GT911 touch (raw taps), ePaper, buttons, buzzer, BLE HID
-- `app/` — event loop, action engine, page navigation, sleep
-- `pages/` — button-grid renderer (monochrome + partial refresh)
-- `config/` — JSON config (pages, buttons, actions) from microSD / flash
+```json
+{
+  "name": "StickyDeck",
+  "pages": [
+    {
+      "id": "main",
+      "title": "Main",
+      "cols": 4,
+      "rows": 2,
+      "buttons": [
+        { "label": "Copy",  "action": { "type": "keys",  "mods": ["CTRL"], "keys": ["C"] } },
+        { "label": "Paste", "action": { "type": "keys",  "mods": ["CTRL"], "keys": ["V"] } },
+        { "label": "Mute",  "action": { "type": "media", "key": "MUTE" } },
+        { "label": "Hi",    "action": { "type": "text",  "text": "Hello!" } },
+        { "label": "Media", "action": { "type": "page",  "target": "media" } }
+      ]
+    }
+  ]
+}
+```
 
-## Toolchain
+Action types: `keys` (modifiers + keycodes), `text`, `media`, `page`.
+Modifiers: `CTRL`, `SHIFT`, `ALT`, `GUI`. Keys: single chars, `ENTER`, `SPACE`,
+`ESC`, `TAB`, `F1`-`F12`, arrows, `HOME`, `END`, etc.
+Media: `VOLUME_UP`, `VOLUME_DOWN`, `MUTE`, `PLAY`, `PAUSE`, `PLAY_PAUSE`,
+`NEXT`, `PREV`, `STOP`.
 
-ESP-IDF v5.4, target `esp32s3`.
+## Build / flash
 
-See `docs/plan.md` for the full implementation plan.
+ESP-IDF v5.4, target `esp32s3`:
+
+```sh
+cd /home/roel/pi-cwd-20260930/stickydeck/main
+source /home/roel/esp/esp-idf/export.sh
+idf.py build
+idf.py -p /dev/ttyACM0 flash
+idf.py -p /dev/ttyACM0 monitor
+```
+
+See `docs/setup.md` for the full toolchain/repo setup and `docs/plan.md` for the
+original implementation plan.
