@@ -24,6 +24,8 @@ public:
     void draw_pixel(int x, int y, GrayLevel color = GrayLevel::Black);
     void draw_line(int x0, int y0, int x1, int y1,
                    GrayLevel color = GrayLevel::Black);
+    void draw_circle(int center_x, int center_y, int radius,
+                     GrayLevel color = GrayLevel::Black);
     void draw_rect(int x, int y, int width, int height,
                    GrayLevel color = GrayLevel::Black);
     void fill_rect(int x, int y, int width, int height, GrayLevel color);

@@ -95,6 +95,9 @@ Modifiers: `CTRL`, `SHIFT`, `ALT`, `GUI`. Keys: single chars, `ENTER`, `SPACE`,
 Media: `VOLUME_UP`, `VOLUME_DOWN`, `MUTE`, `PLAY`, `PAUSE`, `PLAY_PAUSE`,
 `NEXT`, `PREV`, `STOP`.
 
+Each button may also set an `"icon"` (drawn above the label):
+`annotate`, `arrow`, `circle`, `whiteboard`, `text`, `zoom`.
+
 ## Build / flash
 
 ESP-IDF v5.4, target `esp32s3`:

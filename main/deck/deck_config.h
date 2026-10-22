@@ -26,6 +26,7 @@ struct DeckAction {
 
 struct DeckButton {
     std::string label;
+    std::string icon;   // optional built-in icon name
     DeckAction action;
 };
 

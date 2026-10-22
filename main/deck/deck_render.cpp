@@ -1,5 +1,6 @@
 #include "deck_render.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 
@@ -65,6 +66,38 @@ int text_width(const char *text, uint8_t scale)
     return static_cast<int>(strlen(text)) * (kFontWidth + kFontSpacing) * scale;
 }
 
+/* Draw a simple built-in icon centered at (cx, cy); `size` is half-extent. */
+void draw_icon(Canvas &canvas, int cx, int cy, int size, const char *icon,
+               GrayLevel color)
+{
+    if (icon == nullptr || icon[0] == '\0') {
+        return;
+    }
+    const int s = size;
+
+    if (strcmp(icon, "arrow") == 0) {
+        canvas.draw_line(cx - s, cy, cx + s / 2, cy, color);
+        canvas.draw_line(cx + s / 2, cy, cx, cy - s / 2, color);
+        canvas.draw_line(cx + s / 2, cy, cx, cy + s / 2, color);
+    } else if (strcmp(icon, "circle") == 0) {
+        canvas.draw_circle(cx, cy, s, color);
+    } else if (strcmp(icon, "whiteboard") == 0) {
+        canvas.draw_rect(cx - s, cy - s * 3 / 4, s * 2, s * 3 / 2, color);
+        canvas.draw_line(cx - s * 3 / 4, cy, cx + s * 3 / 4, cy, color);
+    } else if (strcmp(icon, "text") == 0) {
+        canvas.draw_line(cx - s, cy - s, cx + s, cy - s, color);
+        canvas.draw_line(cx, cy - s, cx, cy + s, color);
+    } else if (strcmp(icon, "zoom") == 0) {
+        canvas.draw_circle(cx - s / 4, cy - s / 4, s * 3 / 5, color);
+        canvas.draw_line(cx + s / 4, cy + s / 4, cx + s, cy + s, color);
+    } else if (strcmp(icon, "annotate") == 0) {
+        canvas.draw_line(cx - s, cy + s, cx + s * 3 / 5, cy - s * 3 / 5, color);
+        canvas.draw_line(cx + s * 3 / 5, cy - s * 3 / 5, cx + s, cy - s, color);
+        canvas.draw_line(cx + s * 3 / 5, cy - s * 3 / 5, cx + s,
+                         cy - s * 3 / 5, color);
+    }
+}
+
 }  // namespace
 
 void deck_render_status(Canvas &canvas, const DeckStatus &status)
@@ -107,12 +140,29 @@ void deck_render_button(Canvas &canvas, const DeckPage &page, int index,
     canvas.draw_rect(g.x, g.y, g.w, g.h, line);
 
     const char *label = page.buttons[static_cast<size_t>(index)].label.c_str();
-    const uint8_t scale = fit_scale(label, g.w - 10, g.h - 8);
-    const int label_w = text_width(label, scale);
-    const int label_h = kFontHeight * scale;
-    const int tx = g.x + (g.w - label_w) / 2;
-    const int ty = g.y + (g.h - label_h) / 2;
-    canvas.draw_text(tx, ty, label, scale, line);
+    const char *icon = page.buttons[static_cast<size_t>(index)].icon.c_str();
+
+    if (icon[0] != '\0') {
+        /* Icon centered in the upper area, small label below. */
+        const int icon_size = std::min(g.w, g.h) * 22 / 100;
+        const int icon_cy = g.y + g.h * 35 / 100;
+        draw_icon(canvas, g.x + g.w / 2, icon_cy, icon_size, icon, line);
+
+        const uint8_t scale = fit_scale(label, g.w - 8, g.h * 30 / 100);
+        const int label_w = text_width(label, scale);
+        const int label_h = kFontHeight * scale;
+        const int tx = g.x + (g.w - label_w) / 2;
+        const int ty = g.y + g.h * 70 / 100 - label_h / 2;
+        canvas.draw_text(tx, ty, label, scale, line);
+    } else {
+        /* Label only, centered. */
+        const uint8_t scale = fit_scale(label, g.w - 10, g.h - 8);
+        const int label_w = text_width(label, scale);
+        const int label_h = kFontHeight * scale;
+        const int tx = g.x + (g.w - label_w) / 2;
+        const int ty = g.y + (g.h - label_h) / 2;
+        canvas.draw_text(tx, ty, label, scale, line);
+    }
 }
 
 void deck_render_page(Canvas &canvas, const DeckPage &page,

@@ -73,6 +73,36 @@ void Canvas::draw_rect(int x, int y, int width, int height, GrayLevel color)
     draw_line(x + width - 1, y, x + width - 1, y + height - 1, color);
 }
 
+void Canvas::draw_circle(int center_x, int center_y, int radius, GrayLevel color)
+{
+    if (radius < 0) {
+        return;
+    }
+
+    int x = radius;
+    int y = 0;
+    int error = 1 - radius;
+
+    while (x >= y) {
+        draw_pixel(center_x + x, center_y + y, color);
+        draw_pixel(center_x + y, center_y + x, color);
+        draw_pixel(center_x - y, center_y + x, color);
+        draw_pixel(center_x - x, center_y + y, color);
+        draw_pixel(center_x - x, center_y - y, color);
+        draw_pixel(center_x - y, center_y - x, color);
+        draw_pixel(center_x + y, center_y - x, color);
+        draw_pixel(center_x + x, center_y - y, color);
+
+        ++y;
+        if (error < 0) {
+            error += 2 * y + 1;
+        } else {
+            --x;
+            error += 2 * (y - x) + 1;
+        }
+    }
+}
+
 void Canvas::fill_rect(int x, int y, int width, int height, GrayLevel color)
 {
     if (width <= 0 || height <= 0) {

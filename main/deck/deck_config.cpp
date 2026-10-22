@@ -23,31 +23,16 @@ const char kDefaultJson[] = R"JSON({
   "pages": [
     {
       "id": "main",
-      "title": "Main",
-      "cols": 4,
+      "title": "Annotate",
+      "cols": 3,
       "rows": 2,
       "buttons": [
-        { "label": "Copy",   "action": { "type": "keys",  "mods": ["CTRL"], "keys": ["C"] } },
-        { "label": "Paste",  "action": { "type": "keys",  "mods": ["CTRL"], "keys": ["V"] } },
-        { "label": "Mute",   "action": { "type": "media", "key": "MUTE" } },
-        { "label": "Vol+",   "action": { "type": "media", "key": "VOLUME_UP" } },
-        { "label": "Hello!", "action": { "type": "text",  "text": "Hello from StickyDeck! " } },
-        { "label": "Vol-",   "action": { "type": "media", "key": "VOLUME_DOWN" } },
-        { "label": "Media >","action": { "type": "page",  "target": "media" } },
-        { "label": "Lock",   "action": { "type": "keys",  "mods": ["GUI"], "keys": ["L"] } }
-      ]
-    },
-    {
-      "id": "media",
-      "title": "Media",
-      "cols": 4,
-      "rows": 2,
-      "buttons": [
-        { "label": "Prev",   "action": { "type": "media", "key": "PREV" } },
-        { "label": "Play",   "action": { "type": "media", "key": "PLAY_PAUSE" } },
-        { "label": "Next",   "action": { "type": "media", "key": "NEXT" } },
-        { "label": "Stop",   "action": { "type": "media", "key": "STOP" } },
-        { "label": "< Main", "action": { "type": "page",  "target": "main" } }
+        { "label": "Annotate",   "icon": "annotate",   "action": { "type": "keys", "mods": ["CTRL"], "keys": ["A"] } },
+        { "label": "Arrow",      "icon": "arrow",      "action": { "type": "keys", "keys": ["A"] } },
+        { "label": "Circle",     "icon": "circle",     "action": { "type": "keys", "keys": ["C"] } },
+        { "label": "Whiteboard", "icon": "whiteboard", "action": { "type": "keys", "keys": ["W"] } },
+        { "label": "Text",       "icon": "text",       "action": { "type": "keys", "keys": ["T"] } },
+        { "label": "Zoom",       "icon": "zoom",       "action": { "type": "keys", "mods": ["CTRL"], "keys": ["Z"] } }
       ]
     }
   ]
@@ -196,6 +181,10 @@ bool parse_page(cJSON *page_json, DeckPage &page)
             const cJSON *label = cJSON_GetObjectItem(button_json, "label");
             if (label != nullptr && cJSON_IsString(label)) {
                 button.label = label->valuestring;
+            }
+            const cJSON *icon = cJSON_GetObjectItem(button_json, "icon");
+            if (icon != nullptr && cJSON_IsString(icon)) {
+                button.icon = icon->valuestring;
             }
             if (parse_action(cJSON_GetObjectItem(button_json, "action"),
                              button.action)) {
