@@ -1,73 +1,71 @@
-#include "app.h"
-#include "app_clock.h"
-#include "app_data.h"
-#include "board.h"
-#include "canvas.h"
+/*
+ * Minimal BLE HID test harness for the reTerminal Sticky.
+ *
+ * Boots the ble_hid component, advertises as "StickyDeck", and — when the AI
+ * button (GPIO4) is pressed while a host is connected — sends a test text
+ * string, a plain key, and a media key.
+ */
+
+#include "ble_hid.h"
+
+#include "driver/gpio.h"
 #include "esp_log.h"
-#include "sticky_buzzer.h"
-#include "sticky_battery.h"
-#include "sticky_buttons.h"
-#include "sticky_charger.h"
-#include "sticky_display.h"
-#include "sticky_imu.h"
-#include "sticky_microphone.h"
-#include "sticky_power.h"
-#include "sticky_rtc.h"
-#include "sticky_sdcard.h"
-#include "sticky_sht40.h"
-#include "sticky_touch.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
-namespace {
-
-constexpr char kTag[] = "sticky_dashboard";
-
-void show_initial_page(Canvas &canvas, const AppState &state)
-{
-    render_current_page(canvas, state);
-    ESP_ERROR_CHECK(refresh_current_page(state));
-}
-
-}  // namespace
+static const char *TAG = "main";
+#define PIN_AI GPIO_NUM_4
 
 extern "C" void app_main()
 {
-    ESP_LOGI(kTag, "Starting reTerminal Sticky Dashboard Demo");
-    sticky_power_log_wakeup_reason();
+    ESP_LOGI(TAG, "StickyDeck BLE HID test starting");
 
-    ESP_ERROR_CHECK(board_init());
-    ESP_ERROR_CHECK(sticky_display_init());
-    ESP_ERROR_CHECK(sticky_sdcard_init());
-    ESP_ERROR_CHECK(app_event_init());
-    ESP_ERROR_CHECK(sticky_buttons_init());
-    ESP_ERROR_CHECK(sticky_touch_init());
-    ESP_ERROR_CHECK(sticky_buzzer_init());
-    ESP_ERROR_CHECK(sticky_charger_init());
-    ESP_ERROR_CHECK(sticky_battery_init(board_sensor_i2c_bus()));
-    ESP_ERROR_CHECK(sticky_sht40_init(board_sensor_i2c_bus()));
-    ESP_ERROR_CHECK(sticky_rtc_init(board_sensor_i2c_bus()));
-    ESP_ERROR_CHECK(sticky_imu_init(board_sensor_i2c_bus()));
-    ESP_ERROR_CHECK(sticky_microphone_init());
+    ESP_ERROR_CHECK(ble_hid_init());
 
-    Canvas *canvas = sticky_display_canvas();
-    ESP_ERROR_CHECK(canvas != nullptr ? ESP_OK : ESP_ERR_INVALID_STATE);
+    gpio_config_t cfg = {};
+    cfg.pin_bit_mask = 1ULL << PIN_AI;
+    cfg.mode = GPIO_MODE_INPUT;
+    cfg.pull_up_en = GPIO_PULLUP_ENABLE;
+    cfg.pull_down_en = GPIO_PULLDOWN_DISABLE;
+    gpio_config(&cfg);
 
-    AppState state;
-    restore_app_state_after_deep_sleep(state);
-    update_date_time(state);
-    show_initial_page(*canvas, state);
-    ESP_ERROR_CHECK(
-        app_clock_start(state.date_time.valid ? state.date_time.second : -1));
-    ESP_ERROR_CHECK(sticky_imu_start_monitoring());
+    bool was_connected = false;
+    bool auto_sent = false;
+    TickType_t connected_at = 0;
+    int last_level = gpio_get_level(PIN_AI);
 
     while (true) {
-        AppEvent event;
-        if (!app_event_wait(event, portMAX_DELAY)) {
-            continue;
+        bool connected = ble_hid_connected();
+        if (connected != was_connected) {
+            ESP_LOGI(TAG, "BLE connection state: %s", connected ? "CONNECTED" : "DISCONNECTED");
+            was_connected = connected;
+            if (connected) {
+                connected_at = xTaskGetTickCount();
+                auto_sent = false;
+            }
         }
 
-        const esp_err_t result = handle_app_event(*canvas, state, event);
-        if (result != ESP_OK) {
-            ESP_LOGE(kTag, "App event failed: %s", esp_err_to_name(result));
+        /* Auto-send a test string 2 s after connect (so we can verify typing). */
+        if (connected && !auto_sent &&
+            (xTaskGetTickCount() - connected_at) >= pdMS_TO_TICKS(2000)) {
+            auto_sent = true;
+            ESP_LOGI(TAG, "auto-sending test text");
+            ESP_ERROR_CHECK(ble_hid_type_text("Hello from StickyDeck! "));
+            ESP_ERROR_CHECK(ble_hid_tap_media(BLE_HID_MEDIA_VOLUME_UP));
         }
+
+        int level = gpio_get_level(PIN_AI);
+        if (last_level == 1 && level == 0) { /* falling edge = button press */
+            if (connected) {
+                ESP_LOGI(TAG, "AI pressed -> sending test actions");
+                ESP_ERROR_CHECK(ble_hid_type_text("Hello from StickyDeck! "));
+                ESP_ERROR_CHECK(ble_hid_tap_key(0, 0x2C));                  /* space */
+                ESP_ERROR_CHECK(ble_hid_tap_media(BLE_HID_MEDIA_VOLUME_UP));
+            } else {
+                ESP_LOGW(TAG, "AI pressed but no BLE host connected");
+            }
+        }
+        last_level = level;
+        vTaskDelay(pdMS_TO_TICKS(20));
     }
 }
