@@ -29,33 +29,120 @@ const char kIndexHtml[] = R"HTML(<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>StickyDeck config</title>
 <style>
- body{font-family:system-ui,sans-serif;max-width:680px;margin:20px auto;padding:0 12px;color:#111}
- h1{font-size:20px}
- textarea{width:100%;height:62vh;font-family:ui-monospace,monospace;font-size:12px;box-sizing:border-box;border:1px solid #999;border-radius:4px;padding:8px}
- button{font-size:15px;padding:10px 16px;margin:10px 8px 0 0;border-radius:4px;border:1px solid #888;background:#f4f4f4;cursor:pointer}
- #status{display:inline-block;margin-left:8px;font-weight:bold}
- .hint{color:#555;font-size:12px;margin-top:12px;line-height:1.5}
+body{font-family:system-ui,sans-serif;max-width:780px;margin:16px auto;padding:0 12px;color:#111}
+h1{font-size:20px}
+.card{border:1px solid #ccc;border-radius:6px;padding:10px;margin:10px 0;background:#fafafa}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+label{font-size:13px;color:#444;display:inline-flex;align-items:center;gap:3px}
+input[type=text],input[type=number],select{padding:6px;border:1px solid #999;border-radius:4px;font-size:14px}
+input[type=text]{min-width:110px}
+button{padding:8px 14px;border:1px solid #888;border-radius:4px;background:#f4f4f4;cursor:pointer;font-size:14px}
+button.danger{color:#a00}
+button.primary{background:#e8f0fe}
+h2{font-size:16px;margin:4px 0}
+#status{font-weight:bold;margin-left:8px}
+.hint{color:#555;font-size:12px;margin-top:10px;line-height:1.5}
 </style></head><body>
 <h1>StickyDeck config</h1>
-<textarea id="cfg" spellcheck="false"></textarea><br>
-<button onclick="save()">Save</button>
+<div id="app"></div>
+<br>
+<button class="primary" onclick="save()">Save</button>
 <button onclick="reboot()">Save &amp; reboot</button>
 <span id="status"></span>
-<div class="hint">
-Action types: <b>keys</b> {mods:[CTRL|SHIFT|ALT|GUI], keys:[...]} ·
-<b>text</b> {text:"..."} · <b>media</b> {key:MUTE|VOLUME_UP|VOLUME_DOWN|PLAY|PAUSE|PLAY_PAUSE|NEXT|PREV|STOP} ·
-<b>page</b> {target:"page-id"}<br>
-Keys: single chars, ENTER, SPACE, ESC, TAB, F1-F12, UP, DOWN, LEFT, RIGHT, HOME, END, PAGEUP, PAGEDOWN.
-</div>
+<div class="hint">Key names: single chars, ENTER, SPACE, ESC, TAB, F1-F12, UP, DOWN, LEFT, RIGHT, HOME, END, PAGEUP, PAGEDOWN.</div>
 <script>
-async function load(){const r=await fetch('/api/config');document.getElementById('cfg').value=await r.text();}
-function setstatus(s,c){const e=document.getElementById('status');e.textContent=s;e.style.color=c||'#111';}
-async function save(){const cfg=document.getElementById('cfg').value;
- const r=await fetch('/api/save',{method:'POST',body:cfg});
- setstatus(r.ok?'Saved ✓':'Save failed ('+r.status+')', r.ok?'#080':'#c00');}
-async function reboot(){const r=await fetch('/api/save',{method:'POST',body:document.getElementById('cfg').value});
- if(!r.ok){setstatus('Save failed ('+r.status+')','#c00');return;}
- await fetch('/api/reboot',{method:'POST'}); setstatus('Rebooting…','#c00');}
+const ICONS=["","annotate","arrow","circle","whiteboard","text","zoom"];
+const MEDIA=["MUTE","VOLUME_UP","VOLUME_DOWN","PLAY","PAUSE","PLAY_PAUSE","NEXT","PREV","STOP"];
+const ACTIONS=["keys","text","media","page","wifi"];
+let cfg=null;
+
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function opts(list,sel){return list.map(function(o){return '<option value="'+esc(o)+'"'+(o===sel?' selected':'')+'>'+esc(o||'(none)')+'</option>';}).join('');}
+
+function normalize(c){
+  c.name=c.name||"StickyDeck";
+  c.wifi=(c.wifi!==false);
+  c.beep=!!c.beep;
+  c.sleep=parseInt(c.sleep)||0;
+  c.ap_password=c.ap_password||"stickydeck";
+  c.pages=c.pages||[];
+  c.pages.forEach(function(p){
+    p.cols=p.cols||4; p.rows=p.rows||2; p.buttons=p.buttons||[];
+    p.buttons.forEach(function(b){
+      b.icon=b.icon||""; b.action=b.action||{type:"keys"};
+      if(b.action.type==="keys"){b.action.mods=b.action.mods||[];b.action.keys=b.action.keys||[];}
+    });
+  });
+  return c;
+}
+
+function pageIds(sel){return cfg.pages.map(function(p){return '<option value="'+esc(p.id)+'"'+(p.id===sel?' selected':'')+'>'+esc(p.id)+'</option>';}).join('');}
+
+function actionFields(p,b){
+  var a=cfg.pages[p].buttons[b].action, h="";
+  if(a.type==="keys"){
+    var mods=["CTRL","SHIFT","ALT","GUI"].map(function(m){
+      return '<label><input type="checkbox" data-m="'+m+'"'+(a.mods.indexOf(m)>=0?' checked':'')+' onchange="toggleMod2('+p+','+b+',this)">'+m+'</label>';
+    }).join(' ');
+    h+='<div class="row">Mods: '+mods+' &nbsp; Keys: <input type="text" value="'+esc((a.keys||[]).join(','))+'" oninput="setKeys('+p+','+b+',this.value)"></div>';
+  } else if(a.type==="text"){
+    h+='<div class="row">Text: <input type="text" value="'+esc(a.text||'')+'" oninput="cfg.pages['+p+'].buttons['+b+'].action.text=this.value" style="flex:1"></div>';
+  } else if(a.type==="media"){
+    h+='<div class="row">Key: <select onchange="cfg.pages['+p+'].buttons['+b+'].action.key=this.value">'+opts(MEDIA,a.key||"MUTE")+'</select></div>';
+  } else if(a.type==="page"){
+    h+='<div class="row">Target page: <select onchange="cfg.pages['+p+'].buttons['+b+'].action.target=this.value">'+pageIds(a.target)+'</select></div>';
+  } else if(a.type==="wifi"){
+    h+='<div class="row">Toggles the Wi-Fi config AP on/off.</div>';
+  }
+  return h;
+}
+
+function toggleMod2(p,b,el){var a=cfg.pages[p].buttons[b].action;a.mods=a.mods||[];var m=el.getAttribute('data-m');if(el.checked){if(a.mods.indexOf(m)<0)a.mods.push(m);}else{a.mods=a.mods.filter(function(x){return x!==m;});}}
+function setKeys(p,b,v){cfg.pages[p].buttons[b].action.keys=v.split(',').map(function(s){return s.trim();}).filter(Boolean);}
+function changeActionType(p,b,t){cfg.pages[p].buttons[b].action={type:t,mods:[],keys:[]};render();}
+function addPage(){cfg.pages.push({id:"page"+cfg.pages.length,title:"Page "+cfg.pages.length,cols:4,rows:2,buttons:[]});render();}
+function removePage(i){cfg.pages.splice(i,1);render();}
+function addButton(p){cfg.pages[p].buttons.push({label:"Btn",icon:"",action:{type:"keys",mods:[],keys:[]}});render();}
+function removeButton(p,b){cfg.pages[p].buttons.splice(b,1);render();}
+
+function render(){
+  var app=document.getElementById('app'), h="";
+  h+='<div class="card"><h2>Settings</h2>';
+  h+='<div class="row"><label>Name</label><input type="text" value="'+esc(cfg.name)+'" oninput="cfg.name=this.value"></div>';
+  h+='<div class="row">'
+    +'<label><input type="checkbox"'+(cfg.wifi?' checked':'')+' onchange="cfg.wifi=this.checked"> Wi-Fi AP at boot</label>'
+    +'<label><input type="checkbox"'+(cfg.beep?' checked':'')+' onchange="cfg.beep=this.checked"> Beep</label>'
+    +'<label>Sleep (min) <input type="number" min="0" value="'+cfg.sleep+'" oninput="cfg.sleep=parseInt(this.value)||0" style="width:60px"></label>'
+    +'</div>';
+  h+='<div class="row"><label>AP password</label><input type="text" value="'+esc(cfg.ap_password)+'" oninput="cfg.ap_password=this.value"></div>';
+  h+='</div>';
+
+  cfg.pages.forEach(function(pg,p){
+    h+='<div class="card"><h2>Page '+(p+1)+'</h2><div class="row">';
+    h+='<label>Title</label><input type="text" value="'+esc(pg.title)+'" oninput="cfg.pages['+p+'].title=this.value">';
+    h+='<label>ID</label><input type="text" value="'+esc(pg.id)+'" oninput="cfg.pages['+p+'].id=this.value">';
+    h+='<label>Cols</label><input type="number" min="1" max="8" value="'+pg.cols+'" oninput="cfg.pages['+p+'].cols=parseInt(this.value)||1" style="width:52px">';
+    h+='<label>Rows</label><input type="number" min="1" max="8" value="'+pg.rows+'" oninput="cfg.pages['+p+'].rows=parseInt(this.value)||1" style="width:52px">';
+    h+='<button class="danger" onclick="removePage('+p+')">✕</button></div>';
+    pg.buttons.forEach(function(bt,bidx){
+      h+='<div class="card"><div class="row">';
+      h+='<label>Label</label><input type="text" value="'+esc(bt.label)+'" oninput="cfg.pages['+p+'].buttons['+bidx+'].label=this.value">';
+      h+='<label>Icon</label><select onchange="cfg.pages['+p+'].buttons['+bidx+'].icon=this.value">'+opts(ICONS,bt.icon||'')+'</select>';
+      h+='<label>Action</label><select onchange="changeActionType('+p+','+bidx+',this.value)">'+opts(ACTIONS,bt.action.type)+'</select>';
+      h+='<button class="danger" onclick="removeButton('+p+','+bidx+')">✕</button></div>';
+      h+=actionFields(p,bidx);
+      h+='</div>';
+    });
+    h+='<button onclick="addButton('+p+')">+ Add button</button></div>';
+  });
+  h+='<br><button class="primary" onclick="addPage()">+ Add page</button>';
+  app.innerHTML=h;
+}
+
+function setstatus(s,c){var e=document.getElementById('status');e.textContent=s;e.style.color=c||'#111';}
+async function save(){var r=await fetch('/api/save',{method:'POST',body:JSON.stringify(cfg)});setstatus(r.ok?'Saved ✓':'Save failed ('+r.status+')',r.ok?'#080':'#c00');}
+async function reboot(){var r=await fetch('/api/save',{method:'POST',body:JSON.stringify(cfg)});if(!r.ok){setstatus('Save failed','#c00');return;}await fetch('/api/reboot',{method:'POST'});setstatus('Rebooting…','#c00');}
+async function load(){try{var r=await fetch('/api/config');cfg=normalize(JSON.parse(await r.text()));}catch(e){cfg=normalize({});}render();}
 load();
 </script></body></html>)HTML";
 
