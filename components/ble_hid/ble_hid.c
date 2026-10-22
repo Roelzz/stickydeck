@@ -164,8 +164,8 @@ static bool s_adv_start_pending = false;
 static void start_advertising(void)
 {
     esp_ble_adv_params_t adv_params = {
-        .adv_int_min = 0x20,
-        .adv_int_max = 0x30,
+        .adv_int_min = 0x320, /* ~500ms: leaves airtime for the Wi-Fi AP */
+        .adv_int_max = 0x400, /* ~640ms */
         .adv_type = ADV_TYPE_IND,
         .own_addr_type = BLE_ADDR_TYPE_PUBLIC,
         .channel_map = ADV_CHNL_ALL,

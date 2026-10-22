@@ -7,6 +7,7 @@
 #include "esp_event.h"
 #include "esp_http_server.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "esp_netif.h"
 #include "esp_system.h"
 #include "esp_wifi.h"
@@ -123,6 +124,37 @@ esp_err_t handle_reboot(httpd_req_t *req)
     return ESP_OK;
 }
 
+void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id,
+                        void *event_data)
+{
+    if (base != WIFI_EVENT) {
+        return;
+    }
+    switch (id) {
+    case WIFI_EVENT_AP_START: {
+        uint8_t channel = 0;
+        esp_wifi_get_channel(&channel, nullptr);
+        ESP_LOGI(kTag, "WIFI_EVENT_AP_START on channel %u", channel);
+        break;
+    }
+    case WIFI_EVENT_AP_STOP:
+        ESP_LOGI(kTag, "WIFI_EVENT_AP_STOP");
+        break;
+    case WIFI_EVENT_AP_STACONNECTED: {
+        const auto *ev = static_cast<wifi_event_ap_staconnected_t *>(event_data);
+        ESP_LOGI(kTag, "station connected " MACSTR, MAC2STR(ev->mac));
+        break;
+    }
+    case WIFI_EVENT_AP_STADISCONNECTED: {
+        const auto *ev = static_cast<wifi_event_ap_stadisconnected_t *>(event_data);
+        ESP_LOGI(kTag, "station disconnected " MACSTR, MAC2STR(ev->mac));
+        break;
+    }
+    default:
+        break;
+    }
+}
+
 esp_err_t wifi_init_ap()
 {
     esp_err_t err = esp_netif_init();
@@ -135,11 +167,16 @@ esp_err_t wifi_init_ap()
     }
     esp_netif_create_default_wifi_ap();
 
+    esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID,
+                               &wifi_event_handler, nullptr);
+
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
     err = esp_wifi_init(&cfg);
     if (err != ESP_OK) {
         return err;
     }
+    /* Max TX power (20 dBm) so the tiny antenna reaches further. */
+    esp_wifi_set_max_tx_power(80);
     err = esp_wifi_set_mode(WIFI_MODE_AP);
     if (err != ESP_OK) {
         return err;
@@ -161,7 +198,9 @@ esp_err_t wifi_init_ap()
         return err;
     }
 
-    ESP_LOGI(kTag, "Wi-Fi AP '%s' started", kApSsid);
+    uint8_t channel = 0;
+    esp_wifi_get_channel(&channel, nullptr);
+    ESP_LOGI(kTag, "Wi-Fi AP '%s' started on channel %u", kApSsid, channel);
     return ESP_OK;
 }
 
