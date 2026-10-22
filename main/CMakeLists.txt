@@ -19,6 +19,7 @@ idf_component_register(
         "deck/deck_config.cpp"
         "deck/deck_actions.cpp"
         "deck/deck_render.cpp"
+        "deck/webserver.cpp"
     INCLUDE_DIRS "." "app" "board" "devices" "deck" "ui"
     REQUIRES
         esp_driver_gpio
@@ -35,4 +36,7 @@ idf_component_register(
         seeed_epaper
         ble_hid
         json
+        esp_wifi
+        esp_http_server
+        esp_netif
 )

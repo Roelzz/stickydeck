@@ -15,6 +15,7 @@
 #include "sticky_power.h"
 #include "sticky_sdcard.h"
 #include "sticky_touch.h"
+#include "webserver.h"
 
 namespace {
 
@@ -109,6 +110,12 @@ esp_err_t deck_app_run()
     ESP_ERROR_CHECK(deck_config_load(config));
     ESP_LOGI(kTag, "Deck '%s': %u page(s)", config.name.c_str(),
              static_cast<unsigned>(config.pages.size()));
+
+    /* Wi-Fi config server is optional: the deck keeps working without it. */
+    const esp_err_t web_err = deck_webserver_start();
+    if (web_err != ESP_OK) {
+        ESP_LOGW(kTag, "web server start failed: %s", esp_err_to_name(web_err));
+    }
 
     Canvas *canvas = sticky_display_canvas();
     if (canvas == nullptr) {

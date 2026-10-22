@@ -1,0 +1,211 @@
+#include "webserver.h"
+
+#include <cstring>
+
+#include "cJSON.h"
+#include "deck_config.h"
+#include "esp_event.h"
+#include "esp_http_server.h"
+#include "esp_log.h"
+#include "esp_netif.h"
+#include "esp_system.h"
+#include "esp_wifi.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+namespace {
+
+constexpr char kTag[] = "webserver";
+constexpr char kApSsid[] = "StickyDeck-Config";
+
+const char kIndexHtml[] = R"HTML(<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>StickyDeck config</title>
+<style>
+ body{font-family:system-ui,sans-serif;max-width:680px;margin:20px auto;padding:0 12px;color:#111}
+ h1{font-size:20px}
+ textarea{width:100%;height:62vh;font-family:ui-monospace,monospace;font-size:12px;box-sizing:border-box;border:1px solid #999;border-radius:4px;padding:8px}
+ button{font-size:15px;padding:10px 16px;margin:10px 8px 0 0;border-radius:4px;border:1px solid #888;background:#f4f4f4;cursor:pointer}
+ #status{display:inline-block;margin-left:8px;font-weight:bold}
+ .hint{color:#555;font-size:12px;margin-top:12px;line-height:1.5}
+</style></head><body>
+<h1>StickyDeck config</h1>
+<textarea id="cfg" spellcheck="false"></textarea><br>
+<button onclick="save()">Save</button>
+<button onclick="reboot()">Save &amp; reboot</button>
+<span id="status"></span>
+<div class="hint">
+Action types: <b>keys</b> {mods:[CTRL|SHIFT|ALT|GUI], keys:[...]} ·
+<b>text</b> {text:"..."} · <b>media</b> {key:MUTE|VOLUME_UP|VOLUME_DOWN|PLAY|PAUSE|PLAY_PAUSE|NEXT|PREV|STOP} ·
+<b>page</b> {target:"page-id"}<br>
+Keys: single chars, ENTER, SPACE, ESC, TAB, F1-F12, UP, DOWN, LEFT, RIGHT, HOME, END, PAGEUP, PAGEDOWN.
+</div>
+<script>
+async function load(){const r=await fetch('/api/config');document.getElementById('cfg').value=await r.text();}
+function setstatus(s,c){const e=document.getElementById('status');e.textContent=s;e.style.color=c||'#111';}
+async function save(){const cfg=document.getElementById('cfg').value;
+ const r=await fetch('/api/save',{method:'POST',body:cfg});
+ setstatus(r.ok?'Saved ✓':'Save failed ('+r.status+')', r.ok?'#080':'#c00');}
+async function reboot(){const r=await fetch('/api/save',{method:'POST',body:document.getElementById('cfg').value});
+ if(!r.ok){setstatus('Save failed ('+r.status+')','#c00');return;}
+ await fetch('/api/reboot',{method:'POST'}); setstatus('Rebooting…','#c00');}
+load();
+</script></body></html>)HTML";
+
+esp_err_t handle_index(httpd_req_t *req)
+{
+    httpd_resp_set_type(req, "text/html");
+    return httpd_resp_send(req, kIndexHtml, HTTPD_RESP_USE_STRLEN);
+}
+
+esp_err_t handle_get_config(httpd_req_t *req)
+{
+    static char buffer[4096] = {};
+    const esp_err_t err = deck_config_json(buffer, sizeof(buffer));
+    if (err != ESP_OK) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                            "config read failed");
+        return ESP_FAIL;
+    }
+    httpd_resp_set_type(req, "application/json");
+    return httpd_resp_send(req, buffer, HTTPD_RESP_USE_STRLEN);
+}
+
+esp_err_t handle_save(httpd_req_t *req)
+{
+    if (req->content_len <= 0 || req->content_len > 4096) {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "bad length");
+        return ESP_FAIL;
+    }
+
+    char *body = static_cast<char *>(malloc(req->content_len + 1));
+    if (body == nullptr) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "oom");
+        return ESP_FAIL;
+    }
+
+    const int received = httpd_req_recv(req, body, req->content_len);
+    body[received > 0 ? received : 0] = '\0';
+
+    esp_err_t result = ESP_FAIL;
+    if (received > 0) {
+        cJSON *root = cJSON_Parse(body);
+        if (root == nullptr) {
+            httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "invalid JSON");
+        } else {
+            cJSON_Delete(root);
+            result = deck_config_save_nvs(body);
+            if (result != ESP_OK) {
+                httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR,
+                                    "save failed");
+            } else {
+                ESP_LOGI(kTag, "config saved (%d bytes)", received);
+                httpd_resp_sendstr(req, "OK");
+            }
+        }
+    } else {
+        httpd_resp_send_err(req, HTTPD_400_BAD_REQUEST, "empty body");
+    }
+
+    free(body);
+    return result == ESP_OK ? ESP_OK : ESP_FAIL;
+}
+
+esp_err_t handle_reboot(httpd_req_t *req)
+{
+    httpd_resp_sendstr(req, "OK");
+    ESP_LOGI(kTag, "rebooting to apply config");
+    vTaskDelay(pdMS_TO_TICKS(500));
+    esp_restart();
+    return ESP_OK;
+}
+
+esp_err_t wifi_init_ap()
+{
+    esp_err_t err = esp_netif_init();
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        return err;
+    }
+    err = esp_event_loop_create_default();
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
+        return err;
+    }
+    esp_netif_create_default_wifi_ap();
+
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    err = esp_wifi_init(&cfg);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = esp_wifi_set_mode(WIFI_MODE_AP);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    wifi_config_t ap = {};
+    std::strncpy(reinterpret_cast<char *>(ap.ap.ssid), kApSsid,
+                 sizeof(ap.ap.ssid) - 1);
+    ap.ap.ssid_len = std::strlen(kApSsid);
+    ap.ap.channel = 1;
+    ap.ap.max_connection = 4;
+    ap.ap.authmode = WIFI_AUTH_OPEN;
+    err = esp_wifi_set_config(WIFI_IF_AP, &ap);
+    if (err != ESP_OK) {
+        return err;
+    }
+    err = esp_wifi_start();
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    ESP_LOGI(kTag, "Wi-Fi AP '%s' started", kApSsid);
+    return ESP_OK;
+}
+
+esp_err_t start_httpd()
+{
+    httpd_config_t config = HTTPD_DEFAULT_CONFIG();
+    config.max_uri_handlers = 8;
+
+    httpd_handle_t server = nullptr;
+    esp_err_t err = httpd_start(&server, &config);
+    if (err != ESP_OK) {
+        return err;
+    }
+
+    httpd_uri_t uri = {};
+    uri.uri = "/";
+    uri.method = HTTP_GET;
+    uri.handler = handle_index;
+    httpd_register_uri_handler(server, &uri);
+
+    uri.uri = "/api/config";
+    uri.method = HTTP_GET;
+    uri.handler = handle_get_config;
+    httpd_register_uri_handler(server, &uri);
+
+    uri.uri = "/api/save";
+    uri.method = HTTP_POST;
+    uri.handler = handle_save;
+    httpd_register_uri_handler(server, &uri);
+
+    uri.uri = "/api/reboot";
+    uri.method = HTTP_POST;
+    uri.handler = handle_reboot;
+    httpd_register_uri_handler(server, &uri);
+
+    ESP_LOGI(kTag, "HTTP server started at http://192.168.4.1/");
+    return ESP_OK;
+}
+
+}  // namespace
+
+esp_err_t deck_webserver_start()
+{
+    esp_err_t err = wifi_init_ap();
+    if (err != ESP_OK) {
+        ESP_LOGE(kTag, "wifi_init_ap failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    return start_httpd();
+}

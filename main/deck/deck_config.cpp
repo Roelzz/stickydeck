@@ -1,18 +1,87 @@
 #include "deck_config.h"
 
 #include <cstring>
-#include <initializer_list>
 
 #include "ble_hid.h"
 #include "cJSON.h"
 #include "deck_actions.h"
 #include "esp_log.h"
+#include "nvs.h"
+#include "nvs_flash.h"
 #include "sticky_sdcard.h"
 
 namespace {
 
 constexpr char kTag[] = "deck_config";
 constexpr size_t kJsonBufferSize = 4096;
+constexpr char kNvsNamespace[] = "deck";
+constexpr char kNvsKey[] = "json";
+
+/* Embedded default configuration (also shown in the web editor). */
+const char kDefaultJson[] = R"JSON({
+  "name": "StickyDeck",
+  "pages": [
+    {
+      "id": "main",
+      "title": "Main",
+      "cols": 4,
+      "rows": 2,
+      "buttons": [
+        { "label": "Copy",   "action": { "type": "keys",  "mods": ["CTRL"], "keys": ["C"] } },
+        { "label": "Paste",  "action": { "type": "keys",  "mods": ["CTRL"], "keys": ["V"] } },
+        { "label": "Mute",   "action": { "type": "media", "key": "MUTE" } },
+        { "label": "Vol+",   "action": { "type": "media", "key": "VOLUME_UP" } },
+        { "label": "Hello!", "action": { "type": "text",  "text": "Hello from StickyDeck! " } },
+        { "label": "Vol-",   "action": { "type": "media", "key": "VOLUME_DOWN" } },
+        { "label": "Media >","action": { "type": "page",  "target": "media" } },
+        { "label": "Lock",   "action": { "type": "keys",  "mods": ["GUI"], "keys": ["L"] } }
+      ]
+    },
+    {
+      "id": "media",
+      "title": "Media",
+      "cols": 4,
+      "rows": 2,
+      "buttons": [
+        { "label": "Prev",   "action": { "type": "media", "key": "PREV" } },
+        { "label": "Play",   "action": { "type": "media", "key": "PLAY_PAUSE" } },
+        { "label": "Next",   "action": { "type": "media", "key": "NEXT" } },
+        { "label": "Stop",   "action": { "type": "media", "key": "STOP" } },
+        { "label": "< Main", "action": { "type": "page",  "target": "main" } }
+      ]
+    }
+  ]
+})JSON";
+
+esp_err_t open_nvs(nvs_handle_t *handle)
+{
+    esp_err_t err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
+        err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    if (err != ESP_OK) {
+        return err;
+    }
+    return nvs_open(kNvsNamespace, NVS_READWRITE, handle);
+}
+
+esp_err_t load_nvs(char *buffer, size_t buffer_size)
+{
+    nvs_handle_t handle = 0;
+    esp_err_t err = open_nvs(&handle);
+    if (err != ESP_OK) {
+        return err;
+    }
+    size_t length = buffer_size;
+    err = nvs_get_blob(handle, kNvsKey, buffer, &length);
+    nvs_close(handle);
+    if (err == ESP_OK) {
+        buffer[length < buffer_size ? length : buffer_size - 1] = '\0';
+    }
+    return err;
+}
 
 bool parse_action(cJSON *action_json, DeckAction &action)
 {
@@ -165,103 +234,75 @@ bool parse_json(const char *json, DeckConfig &config)
     return !config.pages.empty();
 }
 
-void add_key_button(std::vector<DeckButton> &buttons, const char *label,
-                    uint8_t mods, std::initializer_list<uint8_t> keys)
-{
-    DeckButton b;
-    b.label = label;
-    b.action.type = DeckActionType::Keys;
-    b.action.modifiers = mods;
-    for (uint8_t k : keys) {
-        b.action.keycodes.push_back(k);
-    }
-    buttons.push_back(b);
-}
-
-void add_text_button(std::vector<DeckButton> &buttons, const char *label,
-                     const char *text)
-{
-    DeckButton b;
-    b.label = label;
-    b.action.type = DeckActionType::Text;
-    b.action.text = text;
-    buttons.push_back(b);
-}
-
-void add_media_button(std::vector<DeckButton> &buttons, const char *label,
-                      uint16_t usage)
-{
-    DeckButton b;
-    b.label = label;
-    b.action.type = DeckActionType::Media;
-    b.action.media_usage = usage;
-    buttons.push_back(b);
-}
-
-void add_page_button(std::vector<DeckButton> &buttons, const char *label,
-                     const char *target)
-{
-    DeckButton b;
-    b.label = label;
-    b.action.type = DeckActionType::Page;
-    b.action.page_target = target;
-    buttons.push_back(b);
-}
-
 }  // namespace
 
-DeckConfig deck_config_default()
+const char *deck_config_default_json()
 {
-    DeckConfig config;
-    config.name = "StickyDeck";
+    return kDefaultJson;
+}
 
-    DeckPage main;
-    main.id = "main";
-    main.title = "Main";
-    main.cols = 4;
-    main.rows = 2;
-    add_key_button(main.buttons, "Copy", 0x01, {0x06});   /* Ctrl+C */
-    add_key_button(main.buttons, "Paste", 0x01, {0x19});  /* Ctrl+V */
-    add_media_button(main.buttons, "Mute", BLE_HID_MEDIA_MUTE);
-    add_media_button(main.buttons, "Vol+", BLE_HID_MEDIA_VOLUME_UP);
-    add_text_button(main.buttons, "Hello!", "Hello from StickyDeck! ");
-    add_media_button(main.buttons, "Vol-", BLE_HID_MEDIA_VOLUME_DOWN);
-    add_page_button(main.buttons, "Media >", "media");
-    add_key_button(main.buttons, "Lock", 0x08, {0x0F});   /* GUI+L */
-    config.pages.push_back(main);
+esp_err_t deck_config_save_nvs(const char *json)
+{
+    if (json == nullptr) {
+        return ESP_ERR_INVALID_ARG;
+    }
 
-    DeckPage media;
-    media.id = "media";
-    media.title = "Media";
-    media.cols = 4;
-    media.rows = 2;
-    add_media_button(media.buttons, "Prev", BLE_HID_MEDIA_PREV);
-    add_media_button(media.buttons, "Play", BLE_HID_MEDIA_PLAY_PAUSE);
-    add_media_button(media.buttons, "Next", BLE_HID_MEDIA_NEXT);
-    add_media_button(media.buttons, "Stop", BLE_HID_MEDIA_STOP);
-    add_page_button(media.buttons, "< Main", "main");
-    config.pages.push_back(media);
+    nvs_handle_t handle = 0;
+    esp_err_t err = open_nvs(&handle);
+    if (err != ESP_OK) {
+        return err;
+    }
 
-    return config;
+    err = nvs_set_blob(handle, kNvsKey, json, strlen(json) + 1);
+    if (err == ESP_OK) {
+        err = nvs_commit(handle);
+    }
+    nvs_close(handle);
+    return err;
+}
+
+esp_err_t deck_config_json(char *buffer, size_t buffer_size)
+{
+    if (buffer == nullptr || buffer_size == 0) {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    /* 1. NVS (web-saved). */
+    if (load_nvs(buffer, buffer_size) == ESP_OK && buffer[0] != '\0') {
+        ESP_LOGI(kTag, "Using config from NVS");
+        return ESP_OK;
+    }
+
+    /* 2. microSD deck.json. */
+    if (sticky_sdcard_read_text("deck.json", buffer, buffer_size) == ESP_OK &&
+        buffer[0] != '\0') {
+        ESP_LOGI(kTag, "Using config from microSD deck.json");
+        return ESP_OK;
+    }
+
+    /* 3. Embedded default. */
+    std::snprintf(buffer, buffer_size, "%s", kDefaultJson);
+    ESP_LOGI(kTag, "Using embedded default config");
+    return ESP_OK;
 }
 
 esp_err_t deck_config_load(DeckConfig &config)
 {
-    static char json_buffer[kJsonBufferSize] = {};
-    json_buffer[0] = '\0';
+    static char buffer[kJsonBufferSize] = {};
 
-    const esp_err_t read_result =
-        sticky_sdcard_read_text("deck.json", json_buffer, sizeof(json_buffer));
-
-    if (read_result == ESP_OK && json_buffer[0] != '\0' &&
-        parse_json(json_buffer, config)) {
-        ESP_LOGI(kTag, "Loaded deck.json from microSD: %s",
-                 config.name.c_str());
-        return ESP_OK;
+    const esp_err_t err = deck_config_json(buffer, sizeof(buffer));
+    if (err != ESP_OK) {
+        return err;
     }
 
-    ESP_LOGW(kTag, "deck.json not available (%s); using built-in default",
-             esp_err_to_name(read_result));
-    config = deck_config_default();
+    if (!parse_json(buffer, config)) {
+        ESP_LOGW(kTag, "Failed to parse config JSON; using embedded default");
+        if (!parse_json(kDefaultJson, config)) {
+            return ESP_FAIL;
+        }
+    }
+
+    ESP_LOGI(kTag, "Loaded deck '%s': %u page(s)", config.name.c_str(),
+             static_cast<unsigned>(config.pages.size()));
     return ESP_OK;
 }

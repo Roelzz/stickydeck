@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -42,11 +43,17 @@ struct DeckConfig {
 };
 
 /**
- * Load the deck configuration. Tries "deck.json" on the microSD card first;
- * if the card or file is unavailable, falls back to a built-in default.
- * Always leaves `config` in a usable state on ESP_OK.
+ * Load the deck configuration, preferring (in order) NVS (web-saved), the
+ * microSD "deck.json", then the embedded default. Always leaves `config` in a
+ * usable state on ESP_OK.
  */
 esp_err_t deck_config_load(DeckConfig &config);
 
-/** A built-in default deck (used when no SD config is present). */
-DeckConfig deck_config_default();
+/** The JSON text currently in effect (NVS > microSD > embedded default). */
+esp_err_t deck_config_json(char *buffer, size_t buffer_size);
+
+/** Embedded default configuration, as JSON. */
+const char *deck_config_default_json();
+
+/** Persist a JSON configuration to NVS (used by the web editor). */
+esp_err_t deck_config_save_nvs(const char *json);
