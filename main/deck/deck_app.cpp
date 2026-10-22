@@ -174,7 +174,9 @@ esp_err_t deck_app_run()
                     ESP_LOGW(kTag, "wifi toggle failed: %s",
                              esp_err_to_name(err));
                 }
-                sticky_buzzer_beep();
+                if (config.beep) {
+                    sticky_buzzer_beep();
+                }
                 render_status_if_changed(*canvas, last_status);
                 ESP_LOGI(kTag, "Wi-Fi AP now %s",
                          deck_webserver_is_running() ? "on" : "off");
@@ -219,7 +221,9 @@ esp_err_t deck_app_run()
                              page->buttons[static_cast<size_t>(index)]
                                  .label.c_str());
                 }
-                sticky_buzzer_beep();
+                if (config.beep) {
+                    sticky_buzzer_beep();
+                }
                 deck_render_button(*canvas, *page, index, true);
                 sticky_display_refresh_partial();
                 highlight = index;

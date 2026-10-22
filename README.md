@@ -102,6 +102,7 @@ Each button may also set an `"icon"` (drawn above the label):
 
 Set `"wifi": false` at the top level to keep the config AP off at boot
 (use a `wifi`-type button to switch it back on).
+Set `"beep": true` to enable button/Wi-Fi-toggle beeps (off by default).
 
 ## Build / flash
 

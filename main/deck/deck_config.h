@@ -41,7 +41,8 @@ struct DeckPage {
 
 struct DeckConfig {
     std::string name;
-    bool wifi = true; /* start the config AP at boot */
+    bool wifi = true;  /* start the config AP at boot */
+    bool beep = false; /* beep on button / Wi-Fi toggle */
     std::vector<DeckPage> pages;
 };
 

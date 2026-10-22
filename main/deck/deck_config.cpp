@@ -20,6 +20,7 @@ constexpr char kNvsKey[] = "json";
 /* Embedded default configuration (also shown in the web editor). */
 const char kDefaultJson[] = R"JSON({
   "name": "StickyDeck",
+  "beep": false,
   "pages": [
     {
       "id": "main",
@@ -215,6 +216,11 @@ bool parse_json(const char *json, DeckConfig &config)
     const cJSON *wifi = cJSON_GetObjectItem(root, "wifi");
     if (wifi != nullptr && cJSON_IsBool(wifi)) {
         config.wifi = cJSON_IsTrue(wifi);
+    }
+
+    const cJSON *beep = cJSON_GetObjectItem(root, "beep");
+    if (beep != nullptr && cJSON_IsBool(beep)) {
+        config.beep = cJSON_IsTrue(beep);
     }
 
     config.pages.clear();
