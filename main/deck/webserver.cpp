@@ -18,6 +18,9 @@ namespace {
 constexpr char kTag[] = "webserver";
 constexpr char kApSsid[] = "StickyDeck-Config";
 
+httpd_handle_t s_server = nullptr;
+bool s_running = false;
+
 const char kIndexHtml[] = R"HTML(<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>StickyDeck config</title>
@@ -167,8 +170,7 @@ esp_err_t start_httpd()
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
     config.max_uri_handlers = 8;
 
-    httpd_handle_t server = nullptr;
-    esp_err_t err = httpd_start(&server, &config);
+    esp_err_t err = httpd_start(&s_server, &config);
     if (err != ESP_OK) {
         return err;
     }
@@ -177,22 +179,22 @@ esp_err_t start_httpd()
     uri.uri = "/";
     uri.method = HTTP_GET;
     uri.handler = handle_index;
-    httpd_register_uri_handler(server, &uri);
+    httpd_register_uri_handler(s_server, &uri);
 
     uri.uri = "/api/config";
     uri.method = HTTP_GET;
     uri.handler = handle_get_config;
-    httpd_register_uri_handler(server, &uri);
+    httpd_register_uri_handler(s_server, &uri);
 
     uri.uri = "/api/save";
     uri.method = HTTP_POST;
     uri.handler = handle_save;
-    httpd_register_uri_handler(server, &uri);
+    httpd_register_uri_handler(s_server, &uri);
 
     uri.uri = "/api/reboot";
     uri.method = HTTP_POST;
     uri.handler = handle_reboot;
-    httpd_register_uri_handler(server, &uri);
+    httpd_register_uri_handler(s_server, &uri);
 
     ESP_LOGI(kTag, "HTTP server started at http://192.168.4.1/");
     return ESP_OK;
@@ -202,10 +204,46 @@ esp_err_t start_httpd()
 
 esp_err_t deck_webserver_start()
 {
+    if (s_running) {
+        return ESP_OK;
+    }
+
     esp_err_t err = wifi_init_ap();
     if (err != ESP_OK) {
         ESP_LOGE(kTag, "wifi_init_ap failed: %s", esp_err_to_name(err));
         return err;
     }
-    return start_httpd();
+    err = start_httpd();
+    if (err != ESP_OK) {
+        esp_wifi_stop();
+        return err;
+    }
+    s_running = true;
+    return ESP_OK;
+}
+
+esp_err_t deck_webserver_stop()
+{
+    if (!s_running) {
+        return ESP_OK;
+    }
+
+    if (s_server != nullptr) {
+        httpd_stop(s_server);
+        s_server = nullptr;
+    }
+    esp_wifi_stop();
+    s_running = false;
+    ESP_LOGI(kTag, "Wi-Fi AP + HTTP server stopped");
+    return ESP_OK;
+}
+
+esp_err_t deck_webserver_toggle()
+{
+    return s_running ? deck_webserver_stop() : deck_webserver_start();
+}
+
+bool deck_webserver_is_running()
+{
+    return s_running;
 }

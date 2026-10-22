@@ -111,10 +111,15 @@ esp_err_t deck_app_run()
     ESP_LOGI(kTag, "Deck '%s': %u page(s)", config.name.c_str(),
              static_cast<unsigned>(config.pages.size()));
 
-    /* Wi-Fi config server is optional: the deck keeps working without it. */
-    const esp_err_t web_err = deck_webserver_start();
-    if (web_err != ESP_OK) {
-        ESP_LOGW(kTag, "web server start failed: %s", esp_err_to_name(web_err));
+    /* Wi-Fi config server: controlled by config.wifi; non-fatal. */
+    if (config.wifi) {
+        const esp_err_t web_err = deck_webserver_start();
+        if (web_err != ESP_OK) {
+            ESP_LOGW(kTag, "web server start failed: %s",
+                     esp_err_to_name(web_err));
+        }
+    } else {
+        ESP_LOGI(kTag, "Wi-Fi config AP disabled by config");
     }
 
     Canvas *canvas = sticky_display_canvas();
@@ -178,6 +183,15 @@ esp_err_t deck_app_run()
                     highlight = -1;
                     render_full(*canvas, config, page_index, last_status);
                 }
+            } else if (action.type == DeckActionType::Wifi) {
+                const esp_err_t err = deck_webserver_toggle();
+                if (err != ESP_OK) {
+                    ESP_LOGW(kTag, "wifi toggle failed: %s",
+                             esp_err_to_name(err));
+                }
+                sticky_buzzer_beep();
+                ESP_LOGI(kTag, "Wi-Fi AP now %s",
+                         deck_webserver_is_running() ? "on" : "off");
             } else {
                 const esp_err_t err = deck_action_execute(action);
                 if (err != ESP_OK) {

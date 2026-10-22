@@ -138,7 +138,8 @@ esp_err_t deck_action_execute(const DeckAction &action)
     case DeckActionType::Media:
         return ble_hid_tap_media(action.media_usage);
     case DeckActionType::Page:
-        /* Page navigation is handled by the deck app, not the HID layer. */
+    case DeckActionType::Wifi:
+        /* Handled by the deck app, not the HID layer. */
         return ESP_OK;
     default:
         return ESP_ERR_NOT_SUPPORTED;

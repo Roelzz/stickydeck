@@ -145,6 +145,11 @@ bool parse_action(cJSON *action_json, DeckAction &action)
         return false;
     }
 
+    if (strcmp(type, "wifi") == 0) {
+        action.type = DeckActionType::Wifi;
+        return true;
+    }
+
     return false;
 }
 
@@ -205,6 +210,11 @@ bool parse_json(const char *json, DeckConfig &config)
     const cJSON *name = cJSON_GetObjectItem(root, "name");
     if (name != nullptr && cJSON_IsString(name)) {
         config.name = name->valuestring;
+    }
+
+    const cJSON *wifi = cJSON_GetObjectItem(root, "wifi");
+    if (wifi != nullptr && cJSON_IsBool(wifi)) {
+        config.wifi = cJSON_IsTrue(wifi);
     }
 
     config.pages.clear();

@@ -13,6 +13,7 @@ enum class DeckActionType {
     Text,   // type a string
     Media,  // consumer-control key
     Page,   // switch to another page
+    Wifi,   // toggle the Wi-Fi config AP on/off
 };
 
 struct DeckAction {
@@ -40,6 +41,7 @@ struct DeckPage {
 
 struct DeckConfig {
     std::string name;
+    bool wifi = true; /* start the config AP at boot */
     std::vector<DeckPage> pages;
 };
 

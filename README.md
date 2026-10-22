@@ -89,7 +89,8 @@ web-saved config in NVS takes priority over both):
 }
 ```
 
-Action types: `keys` (modifiers + keycodes), `text`, `media`, `page`.
+Action types: `keys` (modifiers + keycodes), `text`, `media`, `page`, `wifi`
+(toggle the config AP on/off).
 Modifiers: `CTRL`, `SHIFT`, `ALT`, `GUI`. Keys: single chars, `ENTER`, `SPACE`,
 `ESC`, `TAB`, `F1`-`F12`, arrows, `HOME`, `END`, etc.
 Media: `VOLUME_UP`, `VOLUME_DOWN`, `MUTE`, `PLAY`, `PAUSE`, `PLAY_PAUSE`,
@@ -97,6 +98,9 @@ Media: `VOLUME_UP`, `VOLUME_DOWN`, `MUTE`, `PLAY`, `PAUSE`, `PLAY_PAUSE`,
 
 Each button may also set an `"icon"` (drawn above the label):
 `annotate`, `arrow`, `circle`, `whiteboard`, `text`, `zoom`.
+
+Set `"wifi": false` at the top level to keep the config AP off at boot
+(use a `wifi`-type button to switch it back on).
 
 ## Build / flash
 

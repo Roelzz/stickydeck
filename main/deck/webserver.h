@@ -8,3 +8,12 @@
  * Non-fatal: the deck keeps working if this fails.
  */
 esp_err_t deck_webserver_start();
+
+/** Stop the web server and Wi-Fi AP (frees power). */
+esp_err_t deck_webserver_stop();
+
+/** Toggle the web server / Wi-Fi AP on or off. */
+esp_err_t deck_webserver_toggle();
+
+/** Whether the web server / Wi-Fi AP is currently running. */
+bool deck_webserver_is_running();
