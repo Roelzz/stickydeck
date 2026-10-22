@@ -16,7 +16,8 @@ tap a button → fire BLE HID action immediately → buzzer
             → partial ePaper refresh to highlight the key
 Up/Down buttons or left/right swipe → switch pages
 AI short-press → refresh the page   AI long-press → deep sleep
-Status bar: battery % + BLE-connection indicator
+Status bar: battery % + BLE + Wi-Fi indicators
+Tap the header bar → toggle the Wi-Fi config AP on/off
 Wi-Fi AP "StickyDeck-Config" → browser editor at http://192.168.4.1/
 ```
 
@@ -111,8 +112,4 @@ cd /home/roel/pi-cwd-20260930/stickydeck/main
 source /home/roel/esp/esp-idf/export.sh
 idf.py build
 idf.py -p /dev/ttyACM0 flash
-idf.py -p /dev/ttyACM0 monitor
-```
-
-See `docs/setup.md` for the full toolchain/repo setup and `docs/plan.md` for the
-original implementation plan.
+idf.py -p

@@ -15,7 +15,7 @@ constexpr uint16_t kHeaderHeight = 44;
 constexpr uint16_t kGutter = 6;
 
 /* Right-hand status region in the header. */
-constexpr int kStatusX = 560;
+constexpr int kStatusX = 480;
 constexpr int kStatusY = 0;
 constexpr int kStatusW = 800 - kStatusX;
 constexpr int kStatusH = kHeaderHeight;
@@ -100,19 +100,34 @@ void draw_icon(Canvas &canvas, int cx, int cy, int size, const char *icon,
 
 }  // namespace
 
+void draw_indicator(Canvas &canvas, int x, int y, bool on)
+{
+    if (on) {
+        canvas.fill_rect(x, y, 8, 8, GrayLevel::Black);
+    } else {
+        canvas.draw_rect(x, y, 8, 8, GrayLevel::Black);
+    }
+}
+
 void deck_render_status(Canvas &canvas, const DeckStatus &status)
 {
-    /* Clear the status region so stale digits don't linger. */
+    /* Clear the status region so stale content doesn't linger. */
     canvas.fill_rect(kStatusX, kStatusY, kStatusW, kStatusH, GrayLevel::White);
 
-    /* BLE indicator: filled square = connected, outline = disconnected. */
-    const int ble_x = kStatusX;
-    const int ble_y = (kStatusH - 8) / 2;
-    if (status.ble) {
-        canvas.fill_rect(ble_x, ble_y, 8, 8, GrayLevel::Black);
-    } else {
-        canvas.draw_rect(ble_x, ble_y, 8, 8, GrayLevel::Black);
-    }
+    const int square_y = (kStatusH - 8) / 2;
+    const int label_y = (kStatusH - kFontHeight) / 2;
+    int x = kStatusX + 4;
+
+    /* BLE indicator. */
+    canvas.draw_text(x, label_y, "BLE", 1, GrayLevel::Black);
+    x += 3 * (kFontWidth + kFontSpacing) + 2;
+    draw_indicator(canvas, x, square_y, status.ble);
+    x += 8 + 14;
+
+    /* Wi-Fi indicator (tap the header to toggle). */
+    canvas.draw_text(x, label_y, "WiFi", 1, GrayLevel::Black);
+    x += 4 * (kFontWidth + kFontSpacing) + 2;
+    draw_indicator(canvas, x, square_y, status.wifi);
 
     /* Battery percentage, right-aligned. */
     char battery[8] = "--";
@@ -123,6 +138,12 @@ void deck_render_status(Canvas &canvas, const DeckStatus &status)
     const int bx = kStickyDisplayWidth - 8 - text_width(battery, scale);
     canvas.draw_text(bx, (kStatusH - kFontHeight * scale) / 2, battery, scale,
                      GrayLevel::Black);
+}
+
+bool deck_header_hit(uint16_t x, uint16_t y)
+{
+    (void)x;
+    return y < kHeaderHeight;
 }
 
 void deck_render_button(Canvas &canvas, const DeckPage &page, int index,

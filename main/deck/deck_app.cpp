@@ -45,6 +45,7 @@ DeckStatus read_status()
 {
     DeckStatus status;
     status.ble = ble_hid_connected();
+    status.wifi = deck_webserver_is_running();
 
     BatteryReading reading = {};
     if (sticky_battery_read(reading) == ESP_OK) {
@@ -165,6 +166,19 @@ esp_err_t deck_app_run()
             break;
 
         case AppEvent::TouchDown: {
+            if (deck_header_hit(msg.x, msg.y)) {
+                /* Tapping the header bar toggles the Wi-Fi config AP. */
+                const esp_err_t err = deck_webserver_toggle();
+                if (err != ESP_OK) {
+                    ESP_LOGW(kTag, "wifi toggle failed: %s",
+                             esp_err_to_name(err));
+                }
+                sticky_buzzer_beep();
+                render_status_if_changed(*canvas, last_status);
+                ESP_LOGI(kTag, "Wi-Fi AP now %s",
+                         deck_webserver_is_running() ? "on" : "off");
+                break;
+            }
             if (page == nullptr) {
                 break;
             }

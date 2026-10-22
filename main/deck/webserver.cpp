@@ -21,6 +21,7 @@ constexpr char kApSsid[] = "StickyDeck-Config";
 
 httpd_handle_t s_server = nullptr;
 bool s_running = false;
+bool s_wifi_setup = false;
 
 const char kIndexHtml[] = R"HTML(<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -155,7 +156,7 @@ void wifi_event_handler(void *arg, esp_event_base_t base, int32_t id,
     }
 }
 
-esp_err_t wifi_init_ap()
+esp_err_t wifi_ap_setup()
 {
     esp_err_t err = esp_netif_init();
     if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) {
@@ -193,14 +194,6 @@ esp_err_t wifi_init_ap()
     if (err != ESP_OK) {
         return err;
     }
-    err = esp_wifi_start();
-    if (err != ESP_OK) {
-        return err;
-    }
-
-    uint8_t channel = 0;
-    esp_wifi_get_channel(&channel, nullptr);
-    ESP_LOGI(kTag, "Wi-Fi AP '%s' started on channel %u", kApSsid, channel);
     return ESP_OK;
 }
 
@@ -247,17 +240,29 @@ esp_err_t deck_webserver_start()
         return ESP_OK;
     }
 
-    esp_err_t err = wifi_init_ap();
+    esp_err_t err = ESP_OK;
+    if (!s_wifi_setup) {
+        err = wifi_ap_setup();
+        if (err != ESP_OK) {
+            ESP_LOGE(kTag, "wifi_ap_setup failed: %s", esp_err_to_name(err));
+            return err;
+        }
+        s_wifi_setup = true;
+    }
+
+    err = esp_wifi_start();
     if (err != ESP_OK) {
-        ESP_LOGE(kTag, "wifi_init_ap failed: %s", esp_err_to_name(err));
+        ESP_LOGE(kTag, "esp_wifi_start failed: %s", esp_err_to_name(err));
         return err;
     }
+
     err = start_httpd();
     if (err != ESP_OK) {
         esp_wifi_stop();
         return err;
     }
     s_running = true;
+    ESP_LOGI(kTag, "Wi-Fi AP '%s' started", kApSsid);
     return ESP_OK;
 }
 
