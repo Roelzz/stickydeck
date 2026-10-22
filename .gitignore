@@ -1,0 +1,28 @@
+# Build output
+build/
+
+# ESP-IDF generated config (commit sdkconfig.defaults instead)
+sdkconfig
+sdkconfig.old
+sdkconfig.bak
+
+# Component manager
+managed_components/
+dependencies.lock
+
+# Flash artifacts
+*.bin
+*.map
+*.elf
+flasher_args.json
+.flasher_args.json
+flash_project_args
+
+# Editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Local backups
+backups/
