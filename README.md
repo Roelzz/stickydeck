@@ -26,12 +26,14 @@ Wi-Fi AP "StickyDeck-Config" → browser editor at http://192.168.4.1/
 - BLE HID keyboard + consumer (media) keys
 - Touch buttons with built-in icons; multi-page navigation
 - Battery level reported to the host over BLE (macOS shows it in the Bluetooth menu)
+- Charging indicator (`+`) when on USB power
 - Status bar: battery %, BLE + Wi-Fi state; tap the header to toggle Wi-Fi
 - Web configurator — Wi-Fi AP + visual browser editor
 - Auto-sleep after N idle minutes (configurable)
 - Deep sleep (AI long-press) / wake (AI press); sleep screen shows
   "StickyDeck by Roelzz" + battery gauge at zero power
 - Page indicator (N/M) in the header for multi-page decks
+- Text/info pages — e.g. the built-in Info page with repo + Wi-Fi details
 - Config-error indicator (`!`) if the user JSON is invalid
 
 ## Hardware
@@ -118,6 +120,9 @@ Media: `VOLUME_UP`, `VOLUME_DOWN`, `MUTE`, `PLAY`, `PAUSE`, `PLAY_PAUSE`,
 
 Each button may also set an `"icon"` (drawn above the label):
 `annotate`, `arrow`, `circle`, `whiteboard`, `text`, `zoom`.
+
+A page may instead be a text/info page: give it `"lines": ["...", "..."]`
+instead of `buttons`.
 
 Set `"wifi": false` at the top level to keep the config AP off at boot
 (use a `wifi`-type button to switch it back on).

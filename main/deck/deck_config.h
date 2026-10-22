@@ -37,6 +37,7 @@ struct DeckPage {
     uint8_t cols = 4;
     uint8_t rows = 2;
     std::vector<DeckButton> buttons;
+    std::vector<std::string> lines; /* text/info page (rendered instead of buttons) */
 };
 
 struct DeckConfig {

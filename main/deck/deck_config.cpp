@@ -46,6 +46,17 @@ const char kDefaultJson[] = R"JSON({
         { "label": "Mute", "icon": "circle", "action": { "type": "media", "key": "MUTE" } },
         { "label": "Back", "icon": "arrow",  "action": { "type": "page",  "target": "main" } }
       ]
+    },
+    {
+      "id": "info",
+      "title": "Info",
+      "lines": [
+        "StickyDeck",
+        "github.com/Roelzz/stickydeck",
+        "WiFi: StickyDeck-Config",
+        "Pass: stickydeck",
+        "IP: http://192.168.4.1"
+      ]
     }
   ]
 })JSON";
@@ -209,7 +220,17 @@ bool parse_page(cJSON *page_json, DeckPage &page)
             }
         }
     }
-    return !page.buttons.empty();
+    page.lines.clear();
+    const cJSON *lines = cJSON_GetObjectItem(page_json, "lines");
+    if (lines != nullptr && cJSON_IsArray(lines)) {
+        cJSON *line = nullptr;
+        cJSON_ArrayForEach(line, lines) {
+            if (cJSON_IsString(line)) {
+                page.lines.push_back(line->valuestring);
+            }
+        }
+    }
+    return !page.buttons.empty() || !page.lines.empty();
 }
 
 bool parse_json(const char *json, DeckConfig &config)

@@ -67,7 +67,7 @@ function normalize(c){
   c.ap_password=c.ap_password||"stickydeck";
   c.pages=c.pages||[];
   c.pages.forEach(function(p){
-    p.cols=p.cols||4; p.rows=p.rows||2; p.buttons=p.buttons||[];
+    p.cols=p.cols||4; p.rows=p.rows||2; p.buttons=p.buttons||[]; p.lines=p.lines||[];
     p.buttons.forEach(function(b){
       b.icon=b.icon||""; b.action=b.action||{type:"keys"};
       if(b.action.type==="keys"){b.action.mods=b.action.mods||[];b.action.keys=b.action.keys||[];}
@@ -99,6 +99,7 @@ function actionFields(p,b){
 
 function toggleMod2(p,b,el){var a=cfg.pages[p].buttons[b].action;a.mods=a.mods||[];var m=el.getAttribute('data-m');if(el.checked){if(a.mods.indexOf(m)<0)a.mods.push(m);}else{a.mods=a.mods.filter(function(x){return x!==m;});}}
 function setKeys(p,b,v){cfg.pages[p].buttons[b].action.keys=v.split(',').map(function(s){return s.trim();}).filter(Boolean);}
+function setLines(p,v){cfg.pages[p].lines=v.split('\n').map(function(s){return s.replace(/\r/g,'');});}
 function changeActionType(p,b,t){cfg.pages[p].buttons[b].action={type:t,mods:[],keys:[]};render();}
 function addPage(){cfg.pages.push({id:"page"+cfg.pages.length,title:"Page "+cfg.pages.length,cols:4,rows:2,buttons:[]});render();}
 function removePage(i){cfg.pages.splice(i,1);render();}
@@ -124,6 +125,7 @@ function render(){
     h+='<label>Cols</label><input type="number" min="1" max="8" value="'+pg.cols+'" oninput="cfg.pages['+p+'].cols=parseInt(this.value)||1" style="width:52px">';
     h+='<label>Rows</label><input type="number" min="1" max="8" value="'+pg.rows+'" oninput="cfg.pages['+p+'].rows=parseInt(this.value)||1" style="width:52px">';
     h+='<button class="danger" onclick="removePage('+p+')">✕</button></div>';
+    h+='<div class="row"><label>Info lines (one per row)</label><textarea rows="3" style="flex:1" oninput="setLines('+p+',this.value)">'+esc((pg.lines||[]).join('\n'))+'</textarea></div>';
     pg.buttons.forEach(function(bt,bidx){
       h+='<div class="card"><div class="row">';
       h+='<label>Label</label><input type="text" value="'+esc(bt.label)+'" oninput="cfg.pages['+p+'].buttons['+bidx+'].label=this.value">';

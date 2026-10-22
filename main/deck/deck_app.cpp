@@ -7,7 +7,9 @@
 #include "deck_actions.h"
 #include "deck_config.h"
 #include "deck_render.h"
+#include "driver/gpio.h"
 #include "esp_log.h"
+#include "pin_config.h"
 #include "sticky_battery.h"
 #include "sticky_buttons.h"
 #include "sticky_buzzer.h"
@@ -49,11 +51,14 @@ DeckStatus read_status()
     status.ble = ble_hid_connected();
     status.wifi = deck_webserver_is_running();
     status.error = s_config_error;
+    const bool plugged =
+        gpio_get_level(static_cast<gpio_num_t>(PIN_EXTERNAL_POWER)) == 1;
 
     BatteryReading reading = {};
     if (sticky_battery_read(reading) == ESP_OK) {
         status.battery = reading.percent;
     }
+    status.charging = plugged && status.battery < 100;
     return status;
 }
 
@@ -116,6 +121,12 @@ esp_err_t deck_app_run()
     ESP_ERROR_CHECK(sticky_buttons_init());
     ESP_ERROR_CHECK(sticky_touch_init());
     ESP_ERROR_CHECK(sticky_buzzer_init());
+
+    /* External-power detect (USB) for the charging indicator. */
+    gpio_config_t pwr_cfg = {};
+    pwr_cfg.pin_bit_mask = 1ULL << PIN_EXTERNAL_POWER;
+    pwr_cfg.mode = GPIO_MODE_INPUT;
+    ESP_ERROR_CHECK(gpio_config(&pwr_cfg));
 
     /* Battery gauge is optional: the deck still works without a valid read. */
     const esp_err_t battery_err = sticky_battery_init(board_sensor_i2c_bus());

@@ -138,9 +138,10 @@ void deck_render_status(Canvas &canvas, const DeckStatus &status)
     draw_indicator(canvas, x, square_y, kSquare, status.wifi);
 
     /* Battery percentage, right-aligned. */
-    char battery[8] = "--";
+    char battery[10] = "--";
     if (status.battery >= 0 && status.battery <= 100) {
-        std::snprintf(battery, sizeof(battery), "%d%%", status.battery);
+        std::snprintf(battery, sizeof(battery), "%s%d%%",
+                      status.charging ? "+" : "", status.battery);
     }
     const uint8_t scale = 2;
     const int bx = kStickyDisplayWidth - 8 - text_width(battery, scale);
@@ -215,6 +216,18 @@ void deck_render_page(Canvas &canvas, const DeckPage &page,
 
     canvas.draw_line(0, kHeaderHeight - 2, kStickyDisplayWidth,
                      kHeaderHeight - 2, GrayLevel::Black);
+
+    if (!page.lines.empty()) {
+        /* Text / info page: render lines instead of buttons. */
+        int y = 74;
+        for (size_t i = 0; i < page.lines.size(); ++i) {
+            const uint8_t scale = (i == 0) ? 4 : 2;
+            canvas.draw_text(24, y, page.lines[i].c_str(), scale,
+                             GrayLevel::Black);
+            y += (kFontHeight * scale) + 24;
+        }
+        return;
+    }
 
     for (size_t i = 0; i < page.buttons.size(); ++i) {
         deck_render_button(canvas, page, static_cast<int>(i), false);

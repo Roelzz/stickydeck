@@ -26,6 +26,17 @@
         { "label": "Mute", "icon": "circle", "action": { "type": "media", "key": "MUTE" } },
         { "label": "Back", "icon": "arrow",  "action": { "type": "page",  "target": "main" } }
       ]
+    },
+    {
+      "id": "info",
+      "title": "Info",
+      "lines": [
+        "StickyDeck",
+        "github.com/Roelzz/stickydeck",
+        "WiFi: StickyDeck-Config",
+        "Pass: stickydeck",
+        "IP: http://192.168.4.1"
+      ]
     }
   ]
 }

@@ -7,10 +7,11 @@ struct DeckPage;
 
 /** Live status shown in the header (battery %, BLE + Wi-Fi state). */
 struct DeckStatus {
-    int battery = -1; /* percent 0-100, -1 = unknown */
-    bool ble = false; /* BLE host connected */
-    bool wifi = false; /* Wi-Fi config AP running */
+    int battery = -1;   /* percent 0-100, -1 = unknown */
+    bool ble = false;   /* BLE host connected */
+    bool wifi = false;  /* Wi-Fi config AP running */
     bool error = false; /* config failed to parse; using default */
+    bool charging = false; /* USB/external power present */
 };
 
 /** Draw a page's button grid (monochrome) plus the status header. */
