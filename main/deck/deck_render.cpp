@@ -13,6 +13,12 @@ namespace {
 constexpr uint16_t kHeaderHeight = 44;
 constexpr uint16_t kGutter = 6;
 
+/* Right-hand status region in the header. */
+constexpr int kStatusX = 560;
+constexpr int kStatusY = 0;
+constexpr int kStatusW = 800 - kStatusX;
+constexpr int kStatusH = kHeaderHeight;
+
 struct CellGeometry {
     int x;
     int y;
@@ -54,7 +60,37 @@ uint8_t fit_scale(const char *text, int max_width, int max_height)
     return scale;
 }
 
+int text_width(const char *text, uint8_t scale)
+{
+    return static_cast<int>(strlen(text)) * (kFontWidth + kFontSpacing) * scale;
+}
+
 }  // namespace
+
+void deck_render_status(Canvas &canvas, const DeckStatus &status)
+{
+    /* Clear the status region so stale digits don't linger. */
+    canvas.fill_rect(kStatusX, kStatusY, kStatusW, kStatusH, GrayLevel::White);
+
+    /* BLE indicator: filled square = connected, outline = disconnected. */
+    const int ble_x = kStatusX;
+    const int ble_y = (kStatusH - 8) / 2;
+    if (status.ble) {
+        canvas.fill_rect(ble_x, ble_y, 8, 8, GrayLevel::Black);
+    } else {
+        canvas.draw_rect(ble_x, ble_y, 8, 8, GrayLevel::Black);
+    }
+
+    /* Battery percentage, right-aligned. */
+    char battery[8] = "--";
+    if (status.battery >= 0 && status.battery <= 100) {
+        std::snprintf(battery, sizeof(battery), "%d%%", status.battery);
+    }
+    const uint8_t scale = 2;
+    const int bx = kStickyDisplayWidth - 8 - text_width(battery, scale);
+    canvas.draw_text(bx, (kStatusH - kFontHeight * scale) / 2, battery, scale,
+                     GrayLevel::Black);
+}
 
 void deck_render_button(Canvas &canvas, const DeckPage &page, int index,
                         bool inverted)
@@ -72,31 +108,23 @@ void deck_render_button(Canvas &canvas, const DeckPage &page, int index,
 
     const char *label = page.buttons[static_cast<size_t>(index)].label.c_str();
     const uint8_t scale = fit_scale(label, g.w - 10, g.h - 8);
-    const int text_w = static_cast<int>(strlen(label)) *
-                       (kFontWidth + kFontSpacing) * scale;
-    const int text_h = kFontHeight * scale;
-    const int tx = g.x + (g.w - text_w) / 2;
-    const int ty = g.y + (g.h - text_h) / 2;
+    const int label_w = text_width(label, scale);
+    const int label_h = kFontHeight * scale;
+    const int tx = g.x + (g.w - label_w) / 2;
+    const int ty = g.y + (g.h - label_h) / 2;
     canvas.draw_text(tx, ty, label, scale, line);
 }
 
-void deck_render_page(Canvas &canvas, const DeckPage &page)
+void deck_render_page(Canvas &canvas, const DeckPage &page,
+                      const DeckStatus *status)
 {
     canvas.clear(GrayLevel::White);
 
-    /* Header: title + page id. */
-    char title[64] = {};
-    std::snprintf(title, sizeof(title), "%s", page.title.c_str());
-    canvas.draw_text(12, 12, title, 2, GrayLevel::Black);
-
-    const int cols = page.cols > 0 ? page.cols : 1;
-    const int rows = page.rows > 0 ? page.rows : 1;
-    char indicator[32] = {};
-    std::snprintf(indicator, sizeof(indicator), "%dx%d", cols, rows);
-    const int indicator_w = static_cast<int>(strlen(indicator)) *
-                            (kFontWidth + kFontSpacing) * 2;
-    canvas.draw_text(kStickyDisplayWidth - indicator_w - 12, 12, indicator, 2,
-                     GrayLevel::Black);
+    /* Header: title (left) + status (right). */
+    canvas.draw_text(12, 12, page.title.c_str(), 2, GrayLevel::Black);
+    if (status != nullptr) {
+        deck_render_status(canvas, *status);
+    }
 
     canvas.draw_line(0, kHeaderHeight - 2, kStickyDisplayWidth,
                      kHeaderHeight - 2, GrayLevel::Black);

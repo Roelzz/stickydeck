@@ -4,7 +4,7 @@
 
 namespace {
 
-constexpr UBaseType_t kQueueLength = 16;
+constexpr UBaseType_t kQueueLength = 64;
 QueueHandle_t s_event_queue = nullptr;
 
 bool post_msg(const AppEventMessage &msg)

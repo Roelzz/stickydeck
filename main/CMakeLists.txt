@@ -10,6 +10,7 @@ idf_component_register(
         "devices/sticky_touch.cpp"
         "devices/sticky_sdcard.cpp"
         "devices/sticky_power.cpp"
+        "devices/sticky_battery.cpp"
 
         "ui/canvas.cpp"
         "ui/font.cpp"
@@ -27,6 +28,7 @@ idf_component_register(
         esp_hw_support
         esp_timer
         button
+        bq27220
         fatfs
         gt911
         sdmmc

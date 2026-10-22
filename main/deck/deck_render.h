@@ -5,8 +5,18 @@
 class Canvas;
 struct DeckPage;
 
-/** Draw a page's button grid (monochrome) into the canvas. */
-void deck_render_page(Canvas &canvas, const DeckPage &page);
+/** Live status shown in the header (battery %, BLE connection). */
+struct DeckStatus {
+    int battery = -1; /* percent 0-100, -1 = unknown */
+    bool ble = false; /* BLE host connected */
+};
+
+/** Draw a page's button grid (monochrome) plus the status header. */
+void deck_render_page(Canvas &canvas, const DeckPage &page,
+                      const DeckStatus *status);
+
+/** Redraw only the status region of the header (for partial refresh). */
+void deck_render_status(Canvas &canvas, const DeckStatus &status);
 
 /**
  * Hit-test a physical (x, y) coordinate against the page grid.
