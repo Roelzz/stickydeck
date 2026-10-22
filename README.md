@@ -15,7 +15,7 @@ configurator** on Wi-Fi.
 tap a button → fire BLE HID action immediately → buzzer (if enabled)
             → partial ePaper refresh to highlight the key
 Up/Down buttons or left/right swipe → switch pages
-AI short-press → refresh the page   AI long-press → deep sleep
+AI short-press → refresh the page   AI long-press → deep sleep (sleep screen)
 Status bar: battery % + BLE + Wi-Fi indicators
 Tap the header bar → toggle the Wi-Fi config AP on/off
 Wi-Fi AP "StickyDeck-Config" → browser editor at http://192.168.4.1/
@@ -29,7 +29,9 @@ Wi-Fi AP "StickyDeck-Config" → browser editor at http://192.168.4.1/
 - Status bar: battery %, BLE + Wi-Fi state; tap the header to toggle Wi-Fi
 - Web configurator — Wi-Fi AP + visual browser editor
 - Auto-sleep after N idle minutes (configurable)
-- Deep sleep (AI long-press) / wake (AI press), ePaper keeps the last image
+- Deep sleep (AI long-press) / wake (AI press); sleep screen shows
+  "StickyDeck by Roelzz" + battery gauge at zero power
+- Page indicator (N/M) in the header for multi-page decks
 - Config-error indicator (`!`) if the user JSON is invalid
 
 ## Hardware
@@ -85,23 +87,27 @@ web-saved config in NVS takes priority over both):
 ```json
 {
   "name": "StickyDeck",
+  "beep": false,
+  "sleep": 0,
+  "ap_password": "stickydeck",
   "pages": [
     {
       "id": "main",
-      "title": "Main",
-      "cols": 4,
+      "title": "Annotate",
+      "cols": 3,
       "rows": 2,
       "buttons": [
-        { "label": "Copy",  "action": { "type": "keys",  "mods": ["CTRL"], "keys": ["C"] } },
-        { "label": "Paste", "action": { "type": "keys",  "mods": ["CTRL"], "keys": ["V"] } },
-        { "label": "Mute",  "action": { "type": "media", "key": "MUTE" } },
-        { "label": "Hi",    "action": { "type": "text",  "text": "Hello!" } },
-        { "label": "Media", "action": { "type": "page",  "target": "media" } }
+        { "label": "Copy", "icon": "annotate", "action": { "type": "keys",  "mods": ["CTRL"], "keys": ["C"] } },
+        { "label": "Mute", "icon": "circle",   "action": { "type": "media", "key": "MUTE" } },
+        { "label": "Hi",   "icon": "text",     "action": { "type": "text",  "text": "Hello!" } },
+        { "label": "Next", "icon": "arrow",    "action": { "type": "page",  "target": "more" } }
       ]
     }
   ]
 }
 ```
+
+See `docs/example-deck.json` for the full two-page default (Annotate + test).
 
 Action types: `keys` (modifiers + keycodes), `text`, `media`, `page`, `wifi`
 (toggle the config AP on/off).
