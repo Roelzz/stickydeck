@@ -112,4 +112,8 @@ cd /home/roel/pi-cwd-20260930/stickydeck/main
 source /home/roel/esp/esp-idf/export.sh
 idf.py build
 idf.py -p /dev/ttyACM0 flash
-idf.py -p
+idf.py -p /dev/ttyACM0 monitor
+```
+
+See `docs/setup.md` for the full toolchain/repo setup and `docs/plan.md` for the
+original implementation plan.

@@ -71,14 +71,15 @@ void render_full(Canvas &canvas, const DeckConfig &config, int page_index,
 void render_status_if_changed(Canvas &canvas, DeckStatus &last_status)
 {
     const DeckStatus status = read_status();
-    if (status.battery == last_status.battery && status.ble == last_status.ble) {
+    if (status.battery == last_status.battery &&
+        status.ble == last_status.ble && status.wifi == last_status.wifi) {
         return;
     }
     deck_render_status(canvas, status);
     sticky_display_refresh_partial();
     last_status = status;
-    ESP_LOGI(kTag, "status: battery=%d ble=%d", status.battery,
-             static_cast<int>(status.ble));
+    ESP_LOGI(kTag, "status: battery=%d ble=%d wifi=%d", status.battery,
+             static_cast<int>(status.ble), static_cast<int>(status.wifi));
 }
 
 }  // namespace

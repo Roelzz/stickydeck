@@ -100,12 +100,12 @@ void draw_icon(Canvas &canvas, int cx, int cy, int size, const char *icon,
 
 }  // namespace
 
-void draw_indicator(Canvas &canvas, int x, int y, bool on)
+void draw_indicator(Canvas &canvas, int x, int y, int size, bool on)
 {
     if (on) {
-        canvas.fill_rect(x, y, 8, 8, GrayLevel::Black);
+        canvas.fill_rect(x, y, size, size, GrayLevel::Black);
     } else {
-        canvas.draw_rect(x, y, 8, 8, GrayLevel::Black);
+        canvas.draw_rect(x, y, size, size, GrayLevel::Black);
     }
 }
 
@@ -114,20 +114,22 @@ void deck_render_status(Canvas &canvas, const DeckStatus &status)
     /* Clear the status region so stale content doesn't linger. */
     canvas.fill_rect(kStatusX, kStatusY, kStatusW, kStatusH, GrayLevel::White);
 
-    const int square_y = (kStatusH - 8) / 2;
-    const int label_y = (kStatusH - kFontHeight) / 2;
+    constexpr int kSquare = 16;
+    constexpr uint8_t kLabelScale = 2;
+    const int square_y = (kStatusH - kSquare) / 2;
+    const int label_y = (kStatusH - kFontHeight * kLabelScale) / 2;
     int x = kStatusX + 4;
 
     /* BLE indicator. */
-    canvas.draw_text(x, label_y, "BLE", 1, GrayLevel::Black);
-    x += 3 * (kFontWidth + kFontSpacing) + 2;
-    draw_indicator(canvas, x, square_y, status.ble);
-    x += 8 + 14;
+    canvas.draw_text(x, label_y, "BLE", kLabelScale, GrayLevel::Black);
+    x += text_width("BLE", kLabelScale) + 6;
+    draw_indicator(canvas, x, square_y, kSquare, status.ble);
+    x += kSquare + 18;
 
     /* Wi-Fi indicator (tap the header to toggle). */
-    canvas.draw_text(x, label_y, "WiFi", 1, GrayLevel::Black);
-    x += 4 * (kFontWidth + kFontSpacing) + 2;
-    draw_indicator(canvas, x, square_y, status.wifi);
+    canvas.draw_text(x, label_y, "WiFi", kLabelScale, GrayLevel::Black);
+    x += text_width("WiFi", kLabelScale) + 6;
+    draw_indicator(canvas, x, square_y, kSquare, status.wifi);
 
     /* Battery percentage, right-aligned. */
     char battery[8] = "--";
