@@ -285,16 +285,14 @@ void deck_render_sleep(Canvas &canvas, const DeckStatus &status)
     const int cx = kStickyDisplayWidth / 2;
 
     const char *title = "StickyDeck";
-    const uint8_t tscale = 6;
-    canvas.draw_text(cx - text_width(title, tscale) / 2, 130, title, tscale,
+    const uint8_t tscale = 5;
+    canvas.draw_text(cx - text_width(title, tscale) / 2, 80, title, tscale,
                      GrayLevel::Black);
 
     const char *by = "by Roelzz";
-    const uint8_t bscale = 3;
-    canvas.draw_text(cx - text_width(by, bscale) / 2, 200, by, bscale,
-                     GrayLevel::Black);
+    canvas.draw_text(cx - text_width(by, 2) / 2, 126, by, 2, GrayLevel::Black);
 
-    canvas.draw_line(cx - 130, 238, cx + 130, 238, GrayLevel::Black);
+    canvas.draw_line(cx - 140, 154, cx + 140, 154, GrayLevel::Black);
 
     char pct[8] = "--";
     if (status.battery >= 0 && status.battery <= 100) {
@@ -305,15 +303,27 @@ void deck_render_sleep(Canvas &canvas, const DeckStatus &status)
     const int battery_h = 44;
     const int block_w = battery_w + 10 + 8 + text_width(pct, pscale);
     const int battery_x = cx - block_w / 2;
-    const int battery_y = 268;
+    const int battery_y = 176;
     draw_battery(canvas, battery_x, battery_y, battery_w, battery_h,
                  status.battery);
     canvas.draw_text(battery_x + battery_w + 10 + 8,
                      battery_y + (battery_h - kFontHeight * pscale) / 2, pct,
                      pscale, GrayLevel::Black);
 
+    const char *info[] = {
+        "github.com/Roelzz/stickydeck",
+        "WiFi: StickyDeck-Config",
+        "Pass: stickydeck",
+        "IP: http://192.168.4.1",
+    };
+    int y = 256;
+    for (const char *line : info) {
+        canvas.draw_text(cx - text_width(line, 2) / 2, y, line, 2,
+                         GrayLevel::Black);
+        y += 32;
+    }
+
     const char *hint = "press AI to wake";
-    const uint8_t hscale = 2;
-    canvas.draw_text(cx - text_width(hint, hscale) / 2, 396, hint, hscale,
+    canvas.draw_text(cx - text_width(hint, 2) / 2, 432, hint, 2,
                      GrayLevel::Black);
 }
